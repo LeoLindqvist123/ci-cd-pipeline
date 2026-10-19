@@ -1,0 +1,42 @@
+[
+  {
+    "title": "Remove 'arenden' folder",
+    "body": "Delete the unnecessary 'arenden' folder from the repository to clean up the project structure.",
+    "labels": "chore"
+  },
+  {
+    "title": "Clean up README content",
+    "body": "Remove the default template content from the README.md file to prepare it for our custom project documentation.",
+    "labels": "docs,chore"
+  },
+  {
+    "title": "Migrate project to use uv",
+    "body": "Transition the Python dependency management and virtual environment setup to use the `uv` package manager.",
+    "labels": "setup,docs"
+  },
+  {
+    "title": "Set up CI pipeline for code quality",
+    "body": "Implement Ruff and Pytest checks in the GitHub Actions workflow.",
+    "labels": "ci,code"
+  },
+  {
+    "title": "Create Pandera schema",
+    "body": "Define the data validation schema for the dataset using Pandera.",
+    "labels": "feature,data"
+  },
+  {
+    "title": "Set up CI pipeline for Pandera",
+    "body": "Integrate the Pandera schema validation into the GitHub Actions CI flow.",
+    "labels": "ci,data"
+  },
+  {
+    "title": "Analyze model thresholds and document",
+    "body": "Investigate, determine, and document the acceptable evaluation thresholds for the model to pass CI.",
+    "labels": "spike,model"
+  },
+  {
+    "title": "Set up CI pipeline for model training",
+    "body": "Automate the model training and evaluation script in the CI pipeline.",
+    "labels": "ci,model"
+  }
+]
