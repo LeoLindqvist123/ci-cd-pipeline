@@ -9,7 +9,7 @@ on:
     - cron: "0 4 * * 1"
   workflow_dispatch:
     inputs:
-      datafil:
+      datafile:
         description: "Data file to validate"
         type: choice
         options:
@@ -22,11 +22,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  andringar:
+  changes:
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      kod: ${{ steps.filter.outputs.kod }}
+      code: ${{ steps.filter.outputs.code }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -36,7 +36,7 @@ jobs:
         id: filter
         with:
           filters: |
-            kod:
+            code:
               - "src/**"
               - "data/**"
               - "tests/**"
@@ -47,8 +47,8 @@ jobs:
 
   test:
     name: Lint and Test
-    needs: andringar
-    if: needs.andringar.outputs.kod == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -70,10 +70,10 @@ jobs:
       - name: Run tests with Pytest
         run: pytest
 
-  validera:
+  validate:
     name: Validate Data
-    needs: andringar
-    if: needs.andringar.outputs.kod == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -82,16 +82,16 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/installera
         with:
-           paket: ".[data]"
+          paket: ".[data]"
 
       - name: Validate customer data
         env:
-          DATAFIL: ${{ inputs.datafil || 'data/kundbas.csv' }}
-        run: python kontroll/schema.py "$DATAFIL"
+          DATAFILE: ${{ inputs.datafile || 'data/kundbas.csv' }}
+        run: python kontroll/schema.py "$DATAFILE"
 
   train:
     name: Train Model
-    needs: [test, validera]
+    needs: [test, validate]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -106,10 +106,10 @@ jobs:
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
         with:
-          name: modell-${{ github.sha }}
+          name: model-${{ github.sha }}
           path: outputs/
 
-  utvardera:
+  evaluate:
     name: Evaluate Model
     needs: train
     runs-on: ubuntu-latest
@@ -123,7 +123,7 @@ jobs:
       - name: Download model artifact
         uses: actions/download-artifact@v4
         with:
-          name: modell-${{ github.sha }}
+          name: model-${{ github.sha }}
           path: outputs/
 
       - name: Write metrics to Summary
@@ -137,9 +137,9 @@ jobs:
       - name: Evaluate model against threshold
         run: python -m churn.evaluate
 
-  ci-klar:
+  ci-complete:
     name: CI Status Check
-    needs: [andringar, test, validera, train, utvardera]
+    needs: [changes, test, validate, train, evaluate]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -151,9 +151,9 @@ jobs:
           fi
           echo "All checks passed."
 
-  ringlista:
+  call-list:
     name: Generate Call List
-    needs: utvardera
+    needs: evaluate
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -166,7 +166,7 @@ jobs:
       - name: Download model artifact
         uses: actions/download-artifact@v4
         with:
-          name: modell-${{ github.sha }}
+          name: model-${{ github.sha }}
           path: outputs/
 
       - name: Score customers
@@ -175,5 +175,5 @@ jobs:
       - name: Upload call list artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ringlista-${{ github.sha }}
+          name: call-list-${{ github.sha }}
           path: outputs/ringlista.csv
