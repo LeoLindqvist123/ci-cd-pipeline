@@ -28,6 +28,17 @@ try:
     SCHEMA.validate(df, lazy=True)
     print("Validering OK")
 except pa.errors.SchemaErrors as exc:
+<<<<<<< HEAD
     fel = exc.failure_cases.fillna({"column": "<schema>"})
     print(fel.groupby(["column", "check"]).size())
+=======
+    errors = exc.failure_cases.fillna({"column": "<schema>"})
+
+    print(f"Validation failed: {len(errors)} errors\n")
+    print("=== Errors per column and check ===")
+    print(errors.groupby(["column", "check"]).size().to_string())
+    print("\n=== Examples per column/check ===")
+    examples = errors.groupby(["column", "check"]).head(3).sort_values(["column", "check"])
+    print(examples[["column", "check", "failure_case", "index"]].to_string(index=False))
+>>>>>>> 01d8952 (feat(validation): show example failures per column)
     sys.exit(1)
