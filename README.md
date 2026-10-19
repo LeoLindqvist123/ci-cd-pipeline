@@ -25,6 +25,21 @@ uv run pytest
 uv run python src/churn/some_script.py
 ```
 
+## ✅ Data Validation
+
+The data is validated against a Pandera schema (`kontroll/schema.py`) in CI. To run it locally:
+
+```bash
+uv run python kontroll/schema.py [path/to/file.csv]
+```
+If no file is given, `data/kundbas.csv` is used. For example, to validate a new delivery:
+
+```bash
+uv run python kontroll/schema.py data/kundbas_ny_leverans.csv
+```
+
+If validation fails, the script lists errors per column and check with a few examples, and exits with code 1, which fails the CI pipeline.
+
 ## 📁 Project Structure
 
 ```text
