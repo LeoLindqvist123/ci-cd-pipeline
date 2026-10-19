@@ -1,0 +1,149 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      datafil:
+        description: "datafil att kontrollera"
+        type: choice
+        options:
+          - data/kundbas.csv
+          - data/kundbas_ny_leverans.csv
+        default: "data/kundbas.csv"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  andringar:
+    runs-on: ubuntu-latest
+    outputs:
+      kod: ${{ steps.filter.outputs.kod }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            kod:
+              - "src/**"
+              - "data/**"
+              - "tests/**"
+              - "kontroll/**"                #
+              - "pyproject.toml"
+              - ".github/workflows/**"
+              - ".github/actions/**"
+
+  test:
+    needs: andringar
+    if: needs.andringar.outputs.kod == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/installera
+        with:
+          python-version: ${{ matrix.python-version }}
+          paket: ".[dev]"
+
+      - run: pytest
+
+  validera:                                  
+    needs: andringar
+    if: needs.andringar.outputs.kod == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/installera
+        with:
+           paket: ".[data]"
+
+      - name: Validera kunddata
+        env:
+          DATAFIL: ${{ inputs.datafil || 'data/kundbas.csv' }}
+        run: python kontroll/schema.py "$DATAFIL"
+
+  train:
+    needs: [test, validera]                  
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/installera
+
+      - run: python -m churn.model
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: modell-${{ github.sha }}
+          path: outputs/
+
+  utvardera:
+    needs: train
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/installera
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: modell-${{ github.sha }}
+          path: outputs/
+
+      - name: Skriv mätvärden i Summary
+        run: |
+          echo "## Mätvärden för modell-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Mått | Värde |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/matvarden.json >> $GITHUB_STEP_SUMMARY
+
+      - run: python -m churn.evaluate
+
+  ci-klar:
+    needs: [andringar, test, validera, train, utvardera]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kontrollera att inget jobb misslyckades
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "Något jobb misslyckades."
+            exit 1
+          fi
+          echo "Allt OK."
+
+  ringlista:
+    needs: utvardera
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/installera
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: modell-${{ github.sha }}
+          path: outputs/
+
+      - run: python -m churn.score
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ringlista-${{ github.sha }}
+          path: outputs/ringlista.csv

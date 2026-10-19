@@ -1,0 +1,22 @@
+name: Installera
+description: Installerar Python och projektets paket med pip-cache
+
+inputs:
+  python-version:
+    description: Vilken Python-version som ska användas
+    default: "3.11"
+  paket:
+    description: Vad pip ska installera, t.ex. "." eller ".[dev]"
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v7
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: "pip"
+        cache-dependency-path: pyproject.toml
+
+    - run: pip install -e "${{ inputs.paket }}"
+      shell: bash
