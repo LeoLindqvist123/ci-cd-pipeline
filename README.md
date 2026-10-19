@@ -77,10 +77,10 @@ ci-cd-pipeline/
 - [ ] Clean up and finalize README structure
 
 ### 2. CI/CD & Testing
-- [ ] Set up CI pipeline for code quality (Linting/Formatting)
-- [ ] Create Pandera schema for data validation
-- [ ] Set up CI pipeline for Pandera data validation tests
-- [ ] Set up CI pipeline for model training and unit tests
+- [x] Set up CI pipeline for code quality (Linting/Formatting)
+- [x] Create Pandera schema for data validation
+- [x] Set up CI pipeline for Pandera data validation tests
+- [x] Set up CI pipeline for model training and unit tests
 
 ### 3. Machine Learning
 - [ ] Analyze model thresholds and document findings
