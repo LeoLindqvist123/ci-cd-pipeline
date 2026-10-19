@@ -9,8 +9,8 @@ on:
     - cron: "0 4 * * 1"
   workflow_dispatch:
     inputs:
-      datafil:
-        description: "datafil att kontrollera"
+      datafile:
+        description: "Data file to validate"
         type: choice
         options:
           - data/kundbas.csv
@@ -22,128 +22,158 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  andringar:
+  changes:
+    name: Detect changes
     runs-on: ubuntu-latest
     outputs:
-      kod: ${{ steps.filter.outputs.kod }}
+      code: ${{ steps.filter.outputs.code }}
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - uses: dorny/paths-filter@v3
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
-            kod:
+            code:
               - "src/**"
               - "data/**"
               - "tests/**"
-              - "kontroll/**"                #
+              - "kontroll/**"
               - "pyproject.toml"
               - ".github/workflows/**"
               - ".github/actions/**"
 
   test:
-    needs: andringar
-    if: needs.andringar.outputs.kod == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: Lint and Test
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - uses: ./.github/actions/installera
+      - name: Install dependencies
+        uses: ./.github/actions/installera
         with:
           python-version: ${{ matrix.python-version }}
           paket: ".[dev]"
 
-      - run: pytest
+      - name: Check code quality with Ruff
+        run: ruff check .
 
-  validera:                                  
-    needs: andringar
-    if: needs.andringar.outputs.kod == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      - name: Run tests with Pytest
+        run: pytest
+
+  validate:
+    name: Validate Data
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - uses: ./.github/actions/installera
+      - name: Install dependencies
+        uses: ./.github/actions/installera
         with:
-           paket: ".[data]"
+          paket: ".[data]"
 
-      - name: Validera kunddata
+      - name: Validate customer data
         env:
-          DATAFIL: ${{ inputs.datafil || 'data/kundbas.csv' }}
-        run: python kontroll/schema.py "$DATAFIL"
+          DATAFILE: ${{ inputs.datafile || 'data/kundbas.csv' }}
+        run: python kontroll/schema.py "$DATAFILE"
 
   train:
-    needs: [test, validera]                  
+    name: Train Model
+    needs: [test, validate]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - uses: ./.github/actions/installera
+      - name: Install dependencies
+        uses: ./.github/actions/installera
 
-      - run: python -m churn.model
+      - name: Train churn model
+        run: python -m churn.model
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: modell-${{ github.sha }}
+          name: model-${{ github.sha }}
           path: outputs/
 
-  utvardera:
+  evaluate:
+    name: Evaluate Model
     needs: train
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - uses: ./.github/actions/installera
+      - name: Install dependencies
+        uses: ./.github/actions/installera
 
-      - uses: actions/download-artifact@v4
+      - name: Download model artifact
+        uses: actions/download-artifact@v4
         with:
-          name: modell-${{ github.sha }}
+          name: model-${{ github.sha }}
           path: outputs/
 
-      - name: Skriv mätvärden i Summary
+      - name: Write metrics to Summary
         run: |
-          echo "## Mätvärden för modell-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Metrics for model-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Mått | Värde |" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/matvarden.json >> $GITHUB_STEP_SUMMARY
 
-      - run: python -m churn.evaluate
+      - name: Evaluate model against threshold
+        run: python -m churn.evaluate
 
-  ci-klar:
-    needs: [andringar, test, validera, train, utvardera]
+  ci-complete:
+    name: CI Status Check
+    needs: [changes, test, validate, train, evaluate]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Kontrollera att inget jobb misslyckades
+      - name: Verify that no job failed
         run: |
           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "Något jobb misslyckades."
+            echo "One or more jobs failed."
             exit 1
           fi
-          echo "Allt OK."
+          echo "All checks passed."
 
-  ringlista:
-    needs: utvardera
+  call-list:
+    name: Generate Call List
+    needs: evaluate
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-      - uses: ./.github/actions/installera
+      - name: Install dependencies
+        uses: ./.github/actions/installera
 
-      - uses: actions/download-artifact@v4
+      - name: Download model artifact
+        uses: actions/download-artifact@v4
         with:
-          name: modell-${{ github.sha }}
+          name: model-${{ github.sha }}
           path: outputs/
 
-      - run: python -m churn.score
+      - name: Score customers
+        run: python -m churn.score
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload call list artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: ringlista-${{ github.sha }}
+          name: call-list-${{ github.sha }}
           path: outputs/ringlista.csv
