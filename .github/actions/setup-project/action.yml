@@ -20,5 +20,5 @@ runs:
       shell: bash
 
     - name: Install dependencies
-      run: uv sync
+      run: uv sync --all-extras
       shell: bash
