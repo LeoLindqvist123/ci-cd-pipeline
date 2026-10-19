@@ -18,20 +18,16 @@ SCHEMA = pa.DataFrameSchema(
     strict=True,
 )
 
-datafil = sys.argv[1] if len(sys.argv) > 1 else "data/kundbas.csv"
-print(f"Validerar {datafil}")
+datafile = sys.argv[1] if len(sys.argv) > 1 else "data/kundbas.csv"
+print(f"Validating {datafile}")
 
-df = pd.read_csv(datafil)
+df = pd.read_csv(datafile)
 df = df.rename(columns={"manadsavgift": "manadskostnad"})
 
 try:
     SCHEMA.validate(df, lazy=True)
-    print("Validering OK")
+    print("Validation OK")
 except pa.errors.SchemaErrors as exc:
-<<<<<<< HEAD
-    fel = exc.failure_cases.fillna({"column": "<schema>"})
-    print(fel.groupby(["column", "check"]).size())
-=======
     errors = exc.failure_cases.fillna({"column": "<schema>"})
 
     print(f"Validation failed: {len(errors)} errors\n")
@@ -40,5 +36,4 @@ except pa.errors.SchemaErrors as exc:
     print("\n=== Examples per column/check ===")
     examples = errors.groupby(["column", "check"]).head(3).sort_values(["column", "check"])
     print(examples[["column", "check", "failure_case", "index"]].to_string(index=False))
->>>>>>> 01d8952 (feat(validation): show example failures per column)
     sys.exit(1)
