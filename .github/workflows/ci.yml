@@ -7,15 +7,7 @@ on:
     branches: [main]
   schedule:
     - cron: "0 4 * * 1"
-  workflow_dispatch:
-    inputs:
-      datafile:
-        description: "Data file to validate"
-        type: choice
-        options:
-          - data/kundbas.csv
-          - data/kundbas_ny_leverans.csv
-        default: "data/kundbas.csv"
+workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -59,38 +51,35 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install dependencies
-        uses: ./.github/actions/installera
+        uses: ./.github/actions/setup-project
         with:
           python-version: ${{ matrix.python-version }}
-          paket: ".[dev]"
 
       - name: Check code quality with Ruff
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Run tests with Pytest
-        run: pytest
+        run: uv run pytest
 
-  validate:
+    validate:
     name: Validate Data (${{ matrix.datafile }})
     needs: changes
     if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
-       fail-fast: false
-       matrix:
-         include:
-           - datafile: data/kundbas.csv
-             expect: pass
-           - datafile: data/kundbas_ny_leverans.csv
-             expect: fail
+      fail-fast: false
+      matrix:
+        include:
+          - datafile: data/kundbas.csv
+            expect: pass
+          - datafile: data/kundbas_ny_leverans.csv
+            expect: fail
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Install dependencies
-        uses: ./.github/actions/installera
-        with:
-          paket: ".[data]"
+        uses: ./.github/actions/setup-project
 
       - name: Validate data file
         env:
@@ -98,7 +87,7 @@ jobs:
           EXPECT: ${{ matrix.expect }}
         run: |
           set +e
-          uv run python kontroll/schema.py "$DATAFILE" | tee validation.log
+          uv run python kontroll/schema.py "$DATAFILE" 2>&1 | tee validation.log
           status=${PIPESTATUS[0]}
           set -e
 
@@ -128,10 +117,10 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install dependencies
-        uses: ./.github/actions/installera
+        uses: ./.github/actions/setup-project
 
       - name: Train churn model
-        run: python -m churn.model
+        run: uv run python -m churn.model
 
       - name: Upload model artifact
         uses: actions/upload-artifact@v4
@@ -148,7 +137,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install dependencies
-        uses: ./.github/actions/installera
+        uses: ./.github/actions/setup-project
 
       - name: Download model artifact
         uses: actions/download-artifact@v4
@@ -165,7 +154,7 @@ jobs:
           jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/matvarden.json >> $GITHUB_STEP_SUMMARY
 
       - name: Evaluate model against threshold
-        run: python -m churn.evaluate
+        run: uv run python -m churn.evaluate
 
   ci-complete:
     name: CI Status Check
@@ -191,7 +180,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install dependencies
-        uses: ./.github/actions/installera
+        uses: ./.github/actions/setup-project
 
       - name: Download model artifact
         uses: actions/download-artifact@v4
@@ -200,7 +189,7 @@ jobs:
           path: outputs/
 
       - name: Score customers
-        run: python -m churn.score
+        run: uv run python -m churn.score
 
       - name: Upload call list artifact
         uses: actions/upload-artifact@v4
