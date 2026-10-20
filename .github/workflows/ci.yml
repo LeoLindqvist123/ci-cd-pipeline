@@ -61,7 +61,7 @@ jobs:
       - name: Run tests with Pytest
         run: uv run pytest
 
-validate:
+  validate:
     name: Validate Data (${{ matrix.datafile }})
     needs: changes
     if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
