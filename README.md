@@ -25,6 +25,21 @@ uv run pytest
 uv run python src/churn/some_script.py
 ```
 
+## ✅ Data Validation
+
+The data is validated against a Pandera schema (`kontroll/schema.py`) in CI. To run it locally:
+
+```bash
+uv run python kontroll/schema.py [path/to/file.csv]
+```
+If no file is given, `data/kundbas.csv` is used. For example, to validate a new delivery:
+
+```bash
+uv run python kontroll/schema.py data/kundbas_ny_leverans.csv
+```
+
+If validation fails, the script lists errors per column and check with a few examples, and exits with code 1, which fails the CI pipeline.
+
 ## 📁 Project Structure
 
 ```text
@@ -62,10 +77,10 @@ ci-cd-pipeline/
 - [ ] Clean up and finalize README structure
 
 ### 2. CI/CD & Testing
-- [ ] Set up CI pipeline for code quality (Linting/Formatting)
-- [ ] Create Pandera schema for data validation
-- [ ] Set up CI pipeline for Pandera data validation tests
-- [ ] Set up CI pipeline for model training and unit tests
+- [x] Set up CI pipeline for code quality (Linting/Formatting)
+- [x] Create Pandera schema for data validation
+- [x] Set up CI pipeline for Pandera data validation tests
+- [x] Set up CI pipeline for model training and unit tests
 
 ### 3. Machine Learning
 - [ ] Analyze model thresholds and document findings
