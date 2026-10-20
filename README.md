@@ -46,7 +46,10 @@ If validation fails, the script lists errors per column and check with a few exa
 ci-cd-pipeline/
 ├── .github/
 │   ├── actions/
+│   │   └── setup-project/
+│   │       └── action.yml
 │   └── workflows/
+│       └── ci.yml
 ├── data/
 │   ├── kundbas.csv
 │   └── kundbas_ny_leverans.csv
@@ -73,7 +76,7 @@ ci-cd-pipeline/
 
 ### 1. Infrastructure & Setup
 - [x] Create project board and generate backlog issues
-- [ ] **[IN PROGRESS]** Migrate dependency management to `uv` and generate lockfile
+- [x] Migrate dependency management to `uv` and generate lockfile
 - [ ] Clean up and finalize README structure
 
 ### 2. CI/CD & Testing
