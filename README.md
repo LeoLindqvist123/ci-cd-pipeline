@@ -40,6 +40,60 @@ uv run python kontroll/schema.py data/kundbas_ny_leverans.csv
 
 If validation fails, the script lists errors per column and check with a few examples, and exits with code 1, which fails the CI pipeline.
 
+## 📊 Model Threshold Analysis
+
+The pipeline needs a minimum ROC AUC for the model to pass CI. To choose that
+threshold from data instead of guessing, we measured how much ROC AUC varies
+with the random seed alone.
+
+### What the script does
+
+`analys/seed_stability.py` trains and evaluates the model 30 times, with seeds 0–29. The data, features and model stay the same. Only `SEED` in `churn.model` changes, and it controls the train/test split. Each run therefore evaluates on a different 25 % of the customers.
+
+
+```bash
+uv run python analys/seed_variance.py
+```
+
+### Results (`kundbas.csv`, 30 seeds)
+
+| Statistic          | ROC AUC |
+|--------------------|---------|
+| Min                | 0.746   |
+| Max                | 0.836   |
+| Mean               | 0.783   |
+| Standard deviation | 0.020   |
+| Pipeline (seed 42) | 0.789   |
+
+Seed 42 is close to the mean. The pipeline's fixed seed is therefore representative and not an unusually lucky split.
+
+### Candidate thresholds
+
+All 30 runs use the same data and the same model. They differ only in which
+customers end up in the test set. The spread in ROC AUC (0.746 ro 0.836) is therefore random variation from the split, and every run represents a model that works as intended.
+
+This affects where the threshold can go:
+
+- **Inside the spread:** CI will sometimes fail a working model just because of an unlucky split.
+- **Far below the spread:** CI will let a model pass even after it has actually got worse.
+
+The table shows how many of the 30 runs would have failed CI with each candidate threshold. A run fails if its ROC AUC is below the threshold. All the models are working, so every failure is a false alarm.
+
+| Candidate                    | Threshold | Runs that would fail |
+|------------------------------|-----------|----------------------|
+| Mean − 1 standard deviation  | 0.763     | 5 / 30               |
+| 10th percentile              | 0.760     | 3 / 30               |
+| 5th percentile               | 0.751     | 2 / 30               |
+| Lowest observed score        | 0.746     | 0 / 30               |
+| Mean − 2 standard deviations | 0.743     | 0 / 30               |
+| Mean − 3 standard deviations | 0.724     | 0 / 30               |
+
+A lower threshold gives fewer false alarms. The cost is that the model's quality has to drop more before CI catches it.
+
+### Decision
+
+*To be decided by the team: chosen threshold and motivation.*
+
 ## 📁 Project Structure
 
 ```text
@@ -50,6 +104,8 @@ ci-cd-pipeline/
 │   │       └── action.yml
 │   └── workflows/
 │       └── ci.yml
+├── analysis/
+│   └── seed_variance.py
 ├── data/
 │   ├── kundbas.csv
 │   └── kundbas_ny_leverans.csv
