@@ -71,10 +71,18 @@ jobs:
         run: pytest
 
   validate:
-    name: Validate Data
+    name: Validate Data (${{ matrix.datafile }})
     needs: changes
     if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    strategy:
+       fail-fast: false
+       matrix:
+         include:
+           - datafile: data/kundbas.csv
+             expect: pass
+           - datafile: data/kundbas_ny_leverans.csv
+             expect: fail
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -84,10 +92,32 @@ jobs:
         with:
           paket: ".[data]"
 
-      - name: Validate customer data
+      - name: Validate data file
         env:
-          DATAFILE: ${{ inputs.datafile || 'data/kundbas.csv' }}
-        run: python kontroll/schema.py "$DATAFILE"
+          DATAFILE: ${{ matrix.datafile }}
+          EXPECT: ${{ matrix.expect }}
+        run: |
+          set +e
+          uv run python kontroll/schema.py "$DATAFILE" | tee validation.log
+          status=${PIPESTATUS[0]}
+          set -e
+
+          {
+            echo "### \`$DATAFILE\` (expected: $EXPECT)"
+            echo '```'
+            cat validation.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$EXPECT" == "pass" && $status -ne 0 ]]; then
+            echo "::error::$DATAFILE should pass validation but failed"
+            exit 1
+          fi
+          if [[ "$EXPECT" == "fail" && $status -eq 0 ]]; then
+            echo "::error::$DATAFILE should fail validation but passed - is the schema too loose?"
+            exit 1
+          fi
+          echo "Result matched expectation: $EXPECT"
 
   train:
     name: Train Model
