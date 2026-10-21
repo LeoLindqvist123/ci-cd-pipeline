@@ -45,6 +45,8 @@ In CI, the `validate` job checks both data files in parallel:
 - `kundbas.csv` must **pass**.
 - `kundbas_ny_leverans.csv` must **fail**. It is a known-bad delivery that proves the schema catches errors.
 
+The validation output is shown in the job summary on GitHub. The model is only trained if both checks are green.
+
 ## 📊 Model Threshold Analysis
 
 The pipeline needs a minimum ROC AUC for the model to pass CI. To choose that
