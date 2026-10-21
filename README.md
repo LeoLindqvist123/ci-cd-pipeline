@@ -40,6 +40,11 @@ uv run python kontroll/schema.py data/kundbas_ny_leverans.csv
 
 If validation fails, the script lists errors per column and check with a few examples, and exits with code 1, which fails the CI pipeline.
 
+In CI, the `validate` job checks both data files in parallel:
+
+- `kundbas.csv` must **pass**.
+- `kundbas_ny_leverans.csv` must **fail**. It is a known-bad delivery that proves the schema catches errors.
+
 ## 📊 Model Threshold Analysis
 
 The pipeline needs a minimum ROC AUC for the model to pass CI. To choose that
