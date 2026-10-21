@@ -93,6 +93,11 @@ A lower threshold gives fewer false alarms. The cost is that the model's quality
 ### Decision
 
 *To be decided by the team: chosen threshold and motivation.*
+In CI, the `validate` job checks both data files in parallel:
+- `kundbas.csv` must **pass**.
+- `kundbas_ny_leverans.csv` must **fail**. It is a known-bad delivery that proves the schema catches errors.
+
+The validation output is shown in the job summary on GitHub. The model is only trained if both checks are green.
 
 ## 📁 Project Structure
 
