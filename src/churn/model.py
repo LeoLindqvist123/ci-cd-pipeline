@@ -50,19 +50,19 @@ def trana_och_utvardera(filnamn: str = DATAFIL) -> tuple[Pipeline, dict[str, flo
         X, y, test_size=0.25, random_state=SEED, stratify=y
     )
     modell = bygg_modell().fit(X_train, y_train)
-    sannolikhet = modell.predict_proba(X_test)[:, 1]
+    probabilities = modell.predict_proba(X_test)[:, 1]
     matvarden = {
-        "roc_auc": float(roc_auc_score(y_test, sannolikhet)),
+        "roc_auc": float(roc_auc_score(y_test, probabilities)),
         "accuracy": float(accuracy_score(y_test, modell.predict(X_test))),
     }
 
     # Analyze different classification thresholds
-    trosklar = [0.3, 0.4, 0.5, 0.6, 0.7]
+    thresholds = [0.3, 0.4, 0.5, 0.6, 0.7]
 
-    for troskel in trosklar:
-        prediktioner = (sannolikhet >= troskel).astype(int)
+    for threshold in thresholds:
+        prediktioner = (probabilities >= threshold).astype(int)
 
-        prefix = f"threshold_{troskel:.1f}"
+        prefix = f"threshold_{threshold:.1f}"
 
         matvarden[f"{prefix}_precision"] = float(
             precision_score(y_test, prediktioner, zero_division=0)
