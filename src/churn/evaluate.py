@@ -12,7 +12,9 @@ import os
 import sys
 from pathlib import Path
 
-STANDARDTROSKEL = 0.70
+# Chosen from the baseline and the variance in ROC AUC across random seeds,
+# see analysis/seed_variance.py and README "Model Threshold Analysis".
+STANDARDTROSKEL = 0.74
 
 
 def main(argv: list[str] | None = None) -> int:
