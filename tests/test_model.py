@@ -8,6 +8,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
 from churn.data import DATAKATALOG, FEATURES, dela_upp, las_data, skapa_features
+from churn.evaluate import STANDARDTROSKEL
 from churn.evaluate import main as evaluate_main
 from churn.model import DATAFIL, SEED, trana_och_utvardera
 from churn.model import main as train_main
@@ -33,9 +34,9 @@ def test_reproducerbar(resultat):
     assert igen == matvarden
 
 
-def test_roc_auc_minst_070(resultat):
-    _, matvarden = resultat
-    assert matvarden["roc_auc"] >= 0.70
+def test_roc_auc_meets_threshold(resultat):
+    _, metrics = resultat
+    assert metrics["roc_auc"] >= STANDARDTROSKEL
 
 
 def test_slar_dummy(resultat):
