@@ -8,6 +8,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
 
 from churn.data import DATAKATALOG, FEATURES, dela_upp, las_data, skapa_features
+from churn.evaluate import main as evaluate_main
 from churn.model import DATAFIL, SEED, trana_och_utvardera
 from churn.model import main as train_main
 
@@ -67,3 +68,14 @@ def test_model_versioning_metadata(tmp_path, monkeypatch):
     assert metadata["data_sha256"] == expected_sha256
     assert "roc_auc" in metadata
     assert "accuracy" in metadata
+
+
+def test_evaluate_gate_blocks_low_roc_auc(tmp_path):
+    """Verify that evaluate.py exits with code 1 when ROC AUC is below threshold."""
+    failing_metrics = tmp_path / "matvarden_fail.json"
+    failing_metrics.write_text(json.dumps({"roc_auc": 0.50, "accuracy": 0.60}))
+    assert evaluate_main([str(failing_metrics)]) == 1
+
+    passing_metrics = tmp_path / "matvarden_pass.json"
+    passing_metrics.write_text(json.dumps({"roc_auc": 0.80, "accuracy": 0.80}))
+    assert evaluate_main([str(passing_metrics)]) == 0
