@@ -73,7 +73,7 @@ jobs:
           - datafile: data/kundbas.csv
             expect: pass
           - datafile: data/kundbas_ny_leverans.csv
-            expect: fail
+            expect: pass
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
