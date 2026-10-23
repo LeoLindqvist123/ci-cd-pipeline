@@ -152,6 +152,27 @@ Motivation:
 
 The threshold should be revisited if the data, features or model change significantly. In that case, rerun `analysis/seed_variance.py`.
 
+## 📦 Model Versioning & Lineage
+
+Every model that passes the CI quality gate is versioned as a traceable artifact linked to the exact code commit and dataset that produced it.
+
+### How it works
+1. **Metadata & Lineage Generation (`src/churn/model.py`):**
+   When `uv run python -m churn.model` runs, it generates both the trained model (`outputs/modell.joblib`) and a metadata file (`outputs/matvarden.json`) containing:
+   - **Evaluation metrics:** `roc_auc`, `accuracy`, and threshold-specific metrics (`precision`, `recall`, `f1`).
+   - **Commit traceability:** `commit` (populated from `GITHUB_SHA` in GitHub Actions, or `"lokal"` when run locally).
+   - **Data traceability:** `datafil` (`kundbas.csv`) and `data_sha256` (a 64-character SHA-256 hash of the dataset's exact contents).
+
+2. **Gated Versioning in CI (`.github/workflows/ci.yml`):**
+   - The `train` job uploads a temporary candidate artifact (`model-candidate-<sha>`, `retention-days: 1`).
+   - The `evaluate` job downloads the candidate, writes the metrics and lineage table to the GitHub Actions **Job Summary**, and runs `uv run python -m churn.evaluate`.
+   - **Only if the model passes the quality threshold** (`ROC AUC >= 0.74`) does CI publish the official versioned artifact `model-<sha>`.
+
+3. **Automated Lineage Testing (`tests/test_model.py`):**
+   The test `test_model_versioning_metadata` verifies that `modell.joblib` and `matvarden.json` are created with valid `commit`, `datafil`, `data_sha256`, and evaluation metric fields:
+   ```bash
+   uv run pytest tests/test_model.py
+
 ## 📁 Project Structure
 
 ```text
