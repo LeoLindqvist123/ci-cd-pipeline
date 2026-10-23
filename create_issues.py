@@ -2,7 +2,7 @@ import json
 import subprocess
 
 # Load the issues from the JSON file
-with open("issues.json", encoding="utf-8") as file:  # noqa: UP015
+with open("issues_followup.json", encoding="utf-8") as file:
     issues = json.load(file)
 
 print(f"Found {len(issues)} issues to create. Starting...")
