@@ -47,6 +47,43 @@ In CI, the `validate` job checks both data files in parallel:
 
 The validation output is shown in the job summary on GitHub. The model is only trained if both checks are green.
 
+## 📊 Classification Threshold Analysis
+
+The churn model predicts the probability that a customer will leave the company. We evaluate different classification thresholds to understand how they affect the model's predictions.
+
+### What the code does
+
+The function `trana_och_utvardera()` in `src/churn/model.py` evaluates five classification thresholds: 0.3, 0.4, 0.5, 0.6, and 0.7.
+
+For each threshold, a customer is classified as likely to churn if their predicted probability is greater than or equal to that threshold.
+
+The model calculates three additional metrics for each threshold:
+
+- **Precision:** Of the customers predicted to churn, how many actually churned?
+- **Recall:** Of all customers who actually churned, how many did the model identify?
+- **F1-score:** A combined measure of precision and recall.
+
+The existing ROC AUC and accuracy metrics are retained.
+
+### How to run
+
+Run the model training and evaluation module:
+
+```bash
+uv run python -m churn.model
+```
+
+The evaluation results, including the new threshold-specific metrics, are printed and saved to `outputs/matvarden.json`.
+
+### Why it matters
+
+A lower classification threshold may identify more customers who will churn, but it may also produce more false positives. A higher threshold may reduce false positives while missing more actual churners.
+
+Comparing precision, recall, and F1-score helps the team understand these trade-offs before choosing a classification threshold.
+
+The results from different thresholds should be reviewed before selecting a final threshold. For a more rigorous evaluation, select the threshold using validation data and reserve the test data for the final evaluation.
+
+**Note:** Classification thresholds determine how predicted probabilities are converted into churn predictions. They are different from the minimum ROC AUC threshold used by CI to decide whether model evaluation passes or fails.
 ## 📊 Model Threshold Analysis
 
 The pipeline needs a minimum ROC AUC for the model to pass CI. To choose that
@@ -55,7 +92,7 @@ with the random seed alone.
 
 ### What the script does
 
-`analysis/seed_variance.py` trains and evaluates the model 30 times, with seeds 0–29. The data, features and model stay the same. 
+`analysis/seed_variance.py` trains and evaluates the model 30 times, with seeds 0–29. The data, features and model stay the same.
 Only `SEED` in `churn.model` changes, and it controls the train/test split. Each run therefore evaluates on a different 25 % of the customers.
 
 ```bash
