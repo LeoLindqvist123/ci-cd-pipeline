@@ -71,12 +71,18 @@ def test_model_versioning_metadata(tmp_path, monkeypatch):
     assert "accuracy" in metadata
 
 
-def test_evaluate_gate_blocks_low_roc_auc(tmp_path):
-    """Verify that evaluate.py exits with code 1 when ROC AUC is below threshold."""
-    failing_metrics = tmp_path / "matvarden_fail.json"
-    failing_metrics.write_text(json.dumps({"roc_auc": 0.50, "accuracy": 0.60}))
-    assert evaluate_main([str(failing_metrics)]) == 1
-
-    passing_metrics = tmp_path / "matvarden_pass.json"
-    passing_metrics.write_text(json.dumps({"roc_auc": 0.80, "accuracy": 0.80}))
-    assert evaluate_main([str(passing_metrics)]) == 0
+@pytest.mark.parametrize(
+    ("roc_auc", "expected_exit_code"),
+    [
+        (0.50, 1),  # Well below threshold -> fail
+        (STANDARDTROSKEL - 0.01, 1),  # Just below threshold (edge case) -> fail
+        (STANDARDTROSKEL, 0),  # Exactly at threshold (edge case) -> pass
+        (STANDARDTROSKEL + 0.01, 0),  # Just above threshold (edge case) -> pass
+        (0.85, 0),  # Well above threshold -> pass
+    ],
+)
+def test_evaluate_gate_blocks_low_roc_auc(tmp_path, roc_auc, expected_exit_code):
+    """Verify evaluation gate behavior around the threshold using parametrization."""
+    metrics_file = tmp_path / f"metrics_{roc_auc}.json"
+    metrics_file.write_text(json.dumps({"roc_auc": roc_auc, "accuracy": 0.80}))
+    assert evaluate_main([str(metrics_file)]) == expected_exit_code
