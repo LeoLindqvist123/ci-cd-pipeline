@@ -34,7 +34,7 @@ def wait_for_service(url: str, timeout_seconds: int = 30) -> bool:
     return False
 
 
-def test_predict_endpoint(url: str) -> bool:
+def verify_predict_endpoint(url: str) -> bool:
     """Verify that POST /predict accepts input and returns a valid churn prediction."""
     predict_url = f"{url}/predict"
     payload = {
@@ -63,7 +63,7 @@ def test_predict_endpoint(url: str) -> bool:
             print(f"Prediction response: {res_data}")
 
             if "prediction" not in res_data or "churn_probability" not in res_data:
-                print("ERROR: Response missing required fields ('prediction' or 'churn_probability')")
+                print("ERROR: Response missing required fields (prediction or probability)")
                 return False
 
             prediction = res_data["prediction"]
@@ -92,7 +92,7 @@ def main() -> int:
     if not wait_for_service(base_url, timeout_seconds=30):
         return 1
 
-    if not test_predict_endpoint(base_url):
+    if not verify_predict_endpoint(base_url):
         return 1
 
     print("--- Smoke Test Completed Successfully! ---")
