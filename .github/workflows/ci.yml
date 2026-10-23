@@ -203,4 +203,3 @@ jobs:
         with:
           name: call-list-${{ github.sha }}
           path: outputs/ringlista.csv
-EOF
