@@ -25,6 +25,29 @@ uv run pytest
 uv run python src/churn/some_script.py
 ```
 
+
+## FastAPI
+
+The API predicts customer churn using the trained model.
+
+Start the API:
+
+```bash
+uv run uvicorn churn.api:app --reload
+```
+
+Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) to test the endpoints.
+
+- `GET /health` — checks model availability.
+- `POST /predict` — returns a churn prediction and probability.
+
+Run API tests:
+
+```bash
+uv run pytest tests/test_api.py
+```
+
+
 ## ✅ Data Validation
 
 The data is validated against a Pandera schema (`kontroll/schema.py`) in CI. To run it locally:
@@ -191,17 +214,42 @@ ci-cd-pipeline/
 ### 1. Infrastructure & Setup
 - [x] Create project board and generate backlog issues
 - [x] Migrate dependency management to `uv` and generate lockfile
-- [ ] Clean up and finalize README structure
 
 ### 2. CI/CD & Testing
+- [x] Verify branch protection and required status checks
 - [x] Set up CI pipeline for code quality (Linting/Formatting)
 - [x] Create Pandera schema for data validation
 - [x] Set up CI pipeline for Pandera data validation tests
 - [x] Set up CI pipeline for model training and unit tests
+- [ ] Verify that invalid data blocks training in the actual pipeline
 
 ### 3. Machine Learning
 - [ ] Analyze model thresholds and document findings
 - [ ] Refine feature engineering pipeline
+- [ ] Version approved model artifacts with commit and data metadata
+- [ ] Verify that failing model evaluation prevents publication
+
+### 4. Model Serving & FastAPI
+
+- [ ] Add FastAPI prediction endpoint (`POST /predict`)
+- [ ] Add health endpoint (`GET /health`)
+- [ ] Add automated API tests
+- [ ] Document how to run and test the API locally
+
+### 5. Docker & Artifact Publishing
+
+- [ ] Create Dockerfile for the model-serving application
+- [ ] Build and run the Docker image
+- [ ] Add a container smoke test
+- [ ] Push verified images to GitHub Container Registry (GHCR)
+- [ ] Tag published images with the relevant commit SHA
+
+### 6. Documentation & Final Verification
+
+- [ ] Update README to reflect the completed pipeline
+- [ ] Capture a successful end-to-end pipeline run
+- [ ] Capture a run where invalid data stops validation
+- [ ] Prepare final repository, commit and PR/review links for submission
 
 ## 👥 Collaborators
 
