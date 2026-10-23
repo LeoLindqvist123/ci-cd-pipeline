@@ -1,5 +1,5 @@
-"""Testnivå 3: modell. Kontrakt och reproducerbarhet."""
 
+import json
 
 import numpy as np
 import pytest
@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 
 from churn.data import FEATURES, dela_upp, las_data, skapa_features
 from churn.model import SEED, trana_och_utvardera
+from churn.model import main as train_main
 
 
 @pytest.fixture(scope="module")
@@ -30,6 +31,7 @@ def test_reproducerbar(resultat):
     _, igen = trana_och_utvardera()
     assert igen == matvarden
 
+
 def test_roc_auc_minst_070(resultat):
     _, matvarden = resultat
     assert matvarden["roc_auc"] >= 0.70
@@ -44,3 +46,22 @@ def test_slar_dummy(resultat):
     dummy = DummyClassifier(strategy="prior").fit(X_train, y_train)
     dummy_auc = roc_auc_score(y_test, dummy.predict_proba(X_test)[:, 1])
     assert matvarden["roc_auc"] > dummy_auc
+
+
+def test_model_versioning_metadata(tmp_path, monkeypatch):
+    """Verify that model training saves versioned artifacts and full lineage metadata."""
+    monkeypatch.setenv("GITHUB_SHA", "test-sha-12345")
+    train_main(tmp_path)
+
+    model_file = tmp_path / "modell.joblib"
+    metrics_file = tmp_path / "matvarden.json"
+
+    assert model_file.exists(), "Model artifact file was not created"
+    assert metrics_file.exists(), "Metadata and metrics file was not created"
+
+    metadata = json.loads(metrics_file.read_text())
+    assert metadata["commit"] == "test-sha-12345"
+    assert metadata["datafil"] == "kundbas.csv"
+    assert len(metadata["data_sha256"]) == 64
+    assert "roc_auc" in metadata
+    assert "accuracy" in metadata
