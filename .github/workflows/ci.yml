@@ -186,12 +186,11 @@ jobs:
       - name: Build Docker image
         run: |
           IMAGE_NAME="ghcr.io/${{ github.repository }}/churn-api"
-          # Convert to lowercase to avoid Docker naming issues
           IMAGE_NAME=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           docker build -t "$IMAGE_NAME:${{ github.sha }}" -t "$IMAGE_NAME:latest" .
 
-      - name: Start container in background
+      - name: Run container for smoke test
         run: |
           docker run -d --name churn-test-service -p 8000:8000 "${{ env.IMAGE_NAME }}:${{ github.sha }}"
 
@@ -199,11 +198,15 @@ jobs:
         run: |
           python tests/smoke_test.py http://localhost:8000
 
+      - name: Inspect container logs on failure
+        if: failure()
+        run: |
+          docker logs churn-test-service || true
+
       - name: Stop and cleanup container
         if: always()
         run: |
-          docker logs churn-test-service
-          docker rm -f churn-test-service
+          docker rm -f churn-test-service || true
 
       - name: Log in to GitHub Container Registry
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
