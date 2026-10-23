@@ -172,6 +172,7 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
    The test `test_model_versioning_metadata` verifies that `modell.joblib` and `matvarden.json` are created with valid `commit`, `datafil`, `data_sha256`, and evaluation metric fields:
    ```bash
    uv run pytest tests/test_model.py
+   ```
 
 ## 📁 Project Structure
 
