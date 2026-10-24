@@ -1,16 +1,16 @@
-"""Inläsning och feature-kod. Rena funktioner, så att de går att enhetstesta.
+"""Data loading and feature engineering. Pure functions that can be unit tested.
 
-Ändra inte den här filen i övningarna. Arbetet handlar om pipelinen, inte om modellen.
+Do not change this file during the exercises. The work focuses on the pipeline, not the model.
 """
 
 from pathlib import Path
 
 import pandas as pd
 
-DATAKATALOG = Path(__file__).resolve().parents[2] / "data"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
-MAL = "avslutat"
-NUMERISKA = [
+TARGET = "avslutat"
+NUMERIC_FEATURES = [
     "alder",
     "manader_som_kund",
     "manadskostnad",
@@ -18,22 +18,22 @@ NUMERISKA = [
     "supportarenden_12m",
     "kostnad_per_gb",
 ]
-KATEGORISKA = ["region", "abonnemang"]
-FEATURES = NUMERISKA + KATEGORISKA
+CATEGORICAL_FEATURES = ["region", "abonnemang"]
+FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
 
-def las_data(filnamn: str = "kundbas.csv") -> pd.DataFrame:
-    return pd.read_csv(DATAKATALOG / filnamn)
+def load_data(filename: str = "kundbas.csv") -> pd.DataFrame:
+    return pd.read_csv(DATA_DIR / filename)
 
 
-def skapa_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Lägger till härledda kolumner. Ändrar inte indata."""
-    ut = df.copy()
-    # +1 så att kunder utan dataförbrukning inte ger division med noll
-    ut["kostnad_per_gb"] = ut["manadskostnad"] / (ut["data_gb_per_manad"] + 1)
-    ut["region"] = ut["region"].str.strip().str.title()
-    return ut
+def create_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Add derived columns without modifying the input data."""
+    result = df.copy()
+    # Add 1 so customers with zero data usage do not cause division by zero.
+    result["kostnad_per_gb"] = result["manadskostnad"] / (result["data_gb_per_manad"] + 1)
+    result["region"] = result["region"].str.strip().str.title()
+    return result
 
 
-def dela_upp(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    return df[FEATURES], df[MAL]
+def split_features_and_target(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    return df[FEATURES], df[TARGET]

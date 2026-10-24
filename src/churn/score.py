@@ -1,7 +1,8 @@
-"""Ringlistan till kundtjänst. Kör:  python -m churn.score [outputs/modell.joblib]
+"""Customer service call list. Run: python -m churn.score [outputs/model.joblib]
 
-Räknar ut risken för alla kunder som fortfarande är kvar och skriver de med högst
-risk till outputs/ringlista.csv. Antalet styrs med miljövariabeln ANTAL (standard 100).
+Calculates the risk for all customers who have not yet left and writes the
+highest-risk customers to outputs/call_list.csv. The number is controlled
+by the ANTAL environment variable (default: 100).
 """
 
 import os
@@ -10,30 +11,33 @@ from pathlib import Path
 
 import joblib
 
-from churn.data import MAL, dela_upp, las_data, skapa_features
+from churn.data import TARGET, create_features, load_data, split_features_and_target
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    modellfil = Path(argv[0]) if argv else Path("outputs/modell.joblib")
-    antal = int(os.environ.get("ANTAL", 100))
+    model_path = Path(argv[0]) if argv else Path("outputs/model.joblib")
+    limit = int(os.environ.get("ANTAL", 100))
 
-    if not modellfil.exists():
-        print(f"FEL: hittar inte {modellfil}. Har modellen tränats, eller laddats ner hit?")
+    if not model_path.exists():
+        print(f"ERROR: Cannot find {model_path}. "
+            "Has the model been trained or downloaded here?")
         return 1
 
-    modell = joblib.load(modellfil)
-    kunder = skapa_features(las_data())
-    kvar = kunder[kunder[MAL] == 0]
-    X, _ = dela_upp(kvar)
+    model = joblib.load(model_path)
+    customers = create_features(load_data())
+    remaining_customers = customers[customers[TARGET] == 0]
+    features, _ = split_features_and_target(remaining_customers)
 
-    ringlista = kvar[["kund_id"]].assign(risk=modell.predict_proba(X)[:, 1].round(3))
-    ringlista = ringlista.sort_values("risk", ascending=False).head(antal)
+    call_list = remaining_customers[["kund_id"]].assign(
+        risk=model.predict_proba(features)[:, 1].round(3)
+        )
+    call_list = call_list.sort_values("risk", ascending=False,).head(limit)
 
-    utfil = Path("outputs/ringlista.csv")
-    utfil.parent.mkdir(exist_ok=True)
-    ringlista.to_csv(utfil, index=False)
-    print(f"Skrev {len(ringlista)} kunder till {utfil}")
+    output_file = Path("outputs/call_list.csv")
+    output_file.parent.mkdir(exist_ok=True)
+    call_list.to_csv(output_file, index=False)
+    print(f"Wrote {len(call_list)} customers to {output_file}")
     return 0
 
 

@@ -1,12 +1,12 @@
-"""Testnivå 2: data. Ser datan ut som vi tror?"""
+"""Test level 2: data. Does the data look as expected?"""
 
-from churn.data import FEATURES, MAL, las_data, skapa_features
-
-
-def test_forvantade_kolumner_finns():
-    df = skapa_features(las_data())
-    assert set(FEATURES + [MAL]) <= set(df.columns)
+from churn.data import FEATURES, TARGET, create_features, load_data
 
 
-def test_malvariabeln_ar_binar():
-    assert set(las_data()[MAL].unique()) <= {0, 1}
+def test_expected_columns_exist():
+    df = create_features(load_data())
+    assert set(FEATURES + [TARGET]) <= set(df.columns)
+
+
+def test_target_variable_is_binary():
+    assert set(load_data()[TARGET].unique()) <= {0, 1}
