@@ -32,7 +32,7 @@ jobs:
               - "src/**"
               - "data/**"
               - "tests/**"
-              - "kontroll/**"
+              - "validation/**"
               - "pyproject.toml"
               - ".github/workflows/**"
               - ".github/actions/**"
@@ -87,7 +87,7 @@ jobs:
           EXPECT: ${{ matrix.expect }}
         run: |
           set +e
-          uv run python kontroll/schema.py "$DATAFILE" 2>&1 | tee validation.log
+          uv run python validation/schema.py "$DATAFILE" 2>&1 | tee validation.log
           status=${PIPESTATUS[0]}
           set -e
 
@@ -151,7 +151,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/matvarden.json >> $GITHUB_STEP_SUMMARY
+          jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/metrics.json >> $GITHUB_STEP_SUMMARY
 
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
@@ -195,4 +195,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: call-list-${{ github.sha }}
-          path: outputs/ringlista.csv
+          path: outputs/call_list.csv
