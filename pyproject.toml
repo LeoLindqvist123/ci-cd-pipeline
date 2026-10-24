@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "churn"
 version = "0.1.0"
-description = "Saldes Mobil AB: förutsäg vilka kunder som riskerar att säga upp abonnemanget"
+description = "Saldes Mobil AB: Predict which customers are at risk of cancelling their subscriptions."
 requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.2",

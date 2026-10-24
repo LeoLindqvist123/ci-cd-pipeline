@@ -27,15 +27,15 @@ uv run python src/churn/some_script.py
 
 ## ✅ Data Validation
 
-The data is validated against a Pandera schema (`kontroll/schema.py`) in CI. To run it locally:
+The data is validated against a Pandera schema (`validation/schema.py`) in CI. To run it locally:
 
 ```bash
-uv run python kontroll/schema.py [path/to/file.csv]
+uv run python validation/schema.py [path/to/file.csv]
 ```
 If no file is given, `data/kundbas.csv` is used. For example, to validate a new delivery:
 
 ```bash
-uv run python kontroll/schema.py data/kundbas_ny_leverans.csv
+uv run python validation/schema.py data/kundbas_ny_leverans.csv
 ```
 
 If validation fails, the script lists errors per column and check with a few examples, and exits with code 1, which fails the CI pipeline.
@@ -53,7 +53,7 @@ The churn model predicts the probability that a customer will leave the company.
 
 ### What the code does
 
-The function `trana_och_utvardera()` in `src/churn/model.py` evaluates five classification thresholds: 0.3, 0.4, 0.5, 0.6, and 0.7.
+The function `train_and_evaluate()` in `src/churn/model.py` evaluates five classification thresholds: 0.3, 0.4, 0.5, 0.6, and 0.7.
 
 For each threshold, a customer is classified as likely to churn if their predicted probability is greater than or equal to that threshold.
 
@@ -73,7 +73,7 @@ Run the model training and evaluation module:
 uv run python -m churn.model
 ```
 
-The evaluation results, including the new threshold-specific metrics, are printed and saved to `outputs/matvarden.json`.
+The evaluation results, including the new threshold-specific metrics, are printed and saved to `outputs/metrics.json`.
 
 ### Why it matters
 
@@ -167,7 +167,7 @@ ci-cd-pipeline/
 ├── data/
 │   ├── kundbas.csv
 │   └── kundbas_ny_leverans.csv
-├── kontroll/
+├── validation/
 │   └── schema.py
 ├── src/
 │   └── churn/
