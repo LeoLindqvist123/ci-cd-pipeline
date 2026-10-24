@@ -91,3 +91,42 @@ def test_predict_rejects_invalid_age(monkeypatch):
     )
 
     assert response.status_code == 422
+
+def test_predict_maps_api_fields_to_training_columns(monkeypatch):
+    captured = {}
+
+    class CapturingModel:
+        def predict(self, features):
+            captured["features"] = features.copy()
+            return [1]
+
+        def predict_proba(self, features):
+            captured["features"] = features.copy()
+            return np.array([[0.2, 0.8]])
+
+    monkeypatch.setattr(api, "_model", CapturingModel())
+
+    response = client.post(
+        "/predict",
+        json={
+            "age": 35,
+            "months_as_customer": 18,
+            "monthly_cost": 249.0,
+            "data_gb_per_month": 7.5,
+            "support_tickets_12m": 4,
+            "region": "Väst",
+            "subscription": "Standard",
+        },
+    )
+
+    assert response.status_code == 200
+
+    mapped = captured["features"].iloc[0]
+
+    assert mapped["alder"] == 35
+    assert mapped["manader_som_kund"] == 18
+    assert mapped["manadskostnad"] == 249.0
+    assert mapped["data_gb_per_manad"] == 7.5
+    assert mapped["supportarenden_12m"] == 4
+    assert mapped["region"] == "Väst"
+    assert mapped["abonnemang"] == "Standard"
