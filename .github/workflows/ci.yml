@@ -80,33 +80,46 @@ jobs:
 
       - name: Install dependencies
         uses: ./.github/actions/setup-project
-
       - name: Validate data file
         env:
           DATAFILE: ${{ matrix.datafile }}
           EXPECT: ${{ matrix.expect }}
         run: |
-          set +e
-          uv run python kontroll/schema.py "$DATAFILE" 2>&1 | tee validation.log
-          status=${PIPESTATUS[0]}
-          set -e
+          uv run python - <<'EOF'
+          import logging
+          import os
+          import subprocess
+          import sys
 
-          {
-            echo "### \`$DATAFILE\` (expected: $EXPECT)"
-            echo '```'
-            cat validation.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+          log = logging.getLogger("validate")
 
-          if [[ "$EXPECT" == "pass" && $status -ne 0 ]]; then
-            echo "::error::$DATAFILE should pass validation but failed"
-            exit 1
-          fi
-          if [[ "$EXPECT" == "fail" && $status -eq 0 ]]; then
-            echo "::error::$DATAFILE should fail validation but passed - is the schema too loose?"
-            exit 1
-          fi
-          echo "Result matched expectation: $EXPECT"
+          datafile = os.environ["DATAFILE"]
+          expect = os.environ["EXPECT"]
+
+          result = subprocess.run(
+              [sys.executable, "kontroll/schema.py", datafile],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+              text=True,
+          )
+          output = result.stdout.strip()
+          for line in output.splitlines():
+              log.info(line)
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"### `{datafile}` (expected: {expect})\n```\n{output}\n```\n")
+
+          passed = result.returncode == 0
+          if expect == "pass" and not passed:
+              log.error("::error::%s should pass validation but failed", datafile)
+              sys.exit(1)
+          if expect == "fail" and passed:
+              log.error("::error::%s should fail validation but passed - is the schema too loose?", datafile)
+              sys.exit(1)
+
+          log.info("Result matched expectation: %s", expect)
+          EOF
 
   train:
     name: Train Model
