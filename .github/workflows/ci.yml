@@ -202,12 +202,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify that no job failed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
-            echo "One or more jobs failed."
-            exit 1
-          fi
-          echo "All checks passed."
+          python3 - <<'EOF'
+          import json
+          import logging
+          import os
+          import sys
+
+          logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+          log = logging.getLogger("ci-status")
+
+          jobs = json.loads(os.environ["NEEDS"])
+
+          for job, info in jobs.items():
+              log.info("%s: %s", job, info["result"])
+
+          failed = [job for job, info in jobs.items() if info["result"] in ("failure", "cancelled")]
+
+          if failed:
+              log.error("::error::One or more jobs failed: %s", ", ".join(failed))
+              sys.exit(1)
+
+          log.info("All checks passed.")
+          EOF
 
   call-list:
     name: Generate Call List
