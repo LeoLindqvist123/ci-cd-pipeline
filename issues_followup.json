@@ -1,0 +1,38 @@
+
+[
+  {
+    "title": "Use logging for data validation errors",
+    "body": "Replace debugging print statements with appropriate Python logging. Keep the existing validation behavior unchanged.",
+    "labels": "chore,code"
+  },
+  {
+    "title": "Add FastAPI churn prediction service",
+    "body": "Implement GET /health and POST /predict. Use English API field names, reuse the existing feature engineering, add automated API tests, and document how to run the API locally.",
+    "labels": "feature,code"
+  },
+  {
+    "title": "Add Docker image for the churn API",
+    "body": "Create a Dockerfile for the FastAPI service. Include the application dependencies and provide the trained model artifact. Verify that the container starts and serves requests.",
+    "labels": "feature,code"
+  },
+  {
+    "title": "Add a container smoke test",
+    "body": "Test that the Docker container starts, GET /health succeeds, and POST /predict returns a valid response.",
+    "labels": "ci,code"
+  },
+  {
+    "title": "Publish verified Docker images to GHCR",
+    "body": "Extend GitHub Actions to publish verified images to GitHub Container Registry. Tag images with the relevant commit SHA and prevent publishing when required checks fail.",
+    "labels": "ci"
+  },
+  {
+    "title": "Translate Python identifiers and messages into English",
+    "body": "Translate Swedish Python function names, variables, comments, docstrings, test names, and messages into English. Update all imports and references consistently. Do not modify CSV files, their filenames, contents, or column headers.",
+    "labels": "chore,docs"
+  },
+  {
+    "title": "Ensure invalid data blocks model training",
+    "body": "Verify that invalid data stops the actual pipeline before training. Preserve the test that checks rejection of the known-bad CSV and demonstrate both successful and failed pipeline runs.",
+    "labels": "ci,data"
+  }
+]
