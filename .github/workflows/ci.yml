@@ -122,14 +122,15 @@ jobs:
       - name: Train churn model
         run: uv run python -m churn.model
 
-      - name: Upload model artifact
+      - name: Upload candidate model artifact
         uses: actions/upload-artifact@v4
         with:
-          name: model-${{ github.sha }}
+          name: model-candidate-${{ github.sha }}
           path: outputs/
+          retention-days: 1
 
   evaluate:
-    name: Evaluate Model
+    name: Evaluate and Version Model
     needs: train
     runs-on: ubuntu-latest
     steps:
@@ -139,22 +140,29 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup-project
 
-      - name: Download model artifact
+      - name: Download candidate model artifact
         uses: actions/download-artifact@v4
         with:
-          name: model-${{ github.sha }}
+          name: model-candidate-${{ github.sha }}
           path: outputs/
 
-      - name: Write metrics to Summary
+      - name: Write metrics and lineage to Summary
         run: |
-          echo "## Metrics for model-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Metrics and Lineage for model-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
           jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/metrics.json >> $GITHUB_STEP_SUMMARY
 
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
+
+      - name: Version approved model artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-${{ github.sha }}
+          path: outputs/
 
   ci-complete:
     name: CI Status Check
