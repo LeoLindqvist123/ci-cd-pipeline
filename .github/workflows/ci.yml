@@ -156,6 +156,7 @@ jobs:
 
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
+        
       - name: Version approved model artifact
         if: success()
         uses: actions/upload-artifact@v4

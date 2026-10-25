@@ -1,3 +1,5 @@
+"""Testnivå 3: modell. Kontrakt och reproducerbarhet."""
+
 import hashlib
 import json
 
@@ -81,8 +83,11 @@ def test_model_versioning_metadata(tmp_path, monkeypatch):
         (0.85, 0),  # Well above threshold -> pass
     ],
 )
-def test_evaluate_gate_blocks_low_roc_auc(tmp_path, roc_auc, expected_exit_code):
+def test_evaluate_gate_respects_roc_auc_threshold(
+    tmp_path, monkeypatch, roc_auc, expected_exit_code
+):
     """Verify evaluation gate behavior around the threshold using parametrization."""
+    monkeypatch.setenv("MIN_ROC_AUC", str(STANDARDTROSKEL))
     metrics_file = tmp_path / f"metrics_{roc_auc}.json"
     metrics_file.write_text(json.dumps({"roc_auc": roc_auc, "accuracy": 0.80}))
     assert evaluate_main([str(metrics_file)]) == expected_exit_code
