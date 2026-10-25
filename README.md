@@ -181,10 +181,10 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
 
 ### How it works
 1. **Metadata & Lineage Generation (`src/churn/model.py`):**
-   When `uv run python -m churn.model` runs, it generates both the trained model (`outputs/modell.joblib`) and a metadata file (`outputs/matvarden.json`) containing:
+   When `uv run python -m churn.model` runs, it generates both the trained model (`outputs/model.joblib`) and a metadata file (`outputs/metrics.json`) containing:
    - **Evaluation metrics:** `roc_auc`, `accuracy`, and threshold-specific metrics (`precision`, `recall`, `f1`).
-   - **Commit traceability:** `commit` (populated from `GITHUB_SHA` in GitHub Actions, or `"lokal"` when run locally).
-   - **Data traceability:** `datafil` (`kundbas.csv`) and `data_sha256` (a 64-character SHA-256 hash of the dataset's exact contents).
+   - **Commit traceability:** `commit` (populated from `GITHUB_SHA` in GitHub Actions, or `"local"` when run locally).
+   - **Data traceability:** `data_file` (`kundbas.csv`) and `data_sha256` (a 64-character SHA-256 hash of the dataset's exact contents).
 
 2. **Gated Versioning in CI (`.github/workflows/ci.yml`):**
    - The `train` job uploads a temporary candidate artifact (`model-candidate-<sha>`, `retention-days: 1`).
@@ -192,7 +192,8 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
    - **Only if the model passes the quality threshold** (`ROC AUC >= 0.74`) does CI publish the official versioned artifact `model-<sha>`.
 
 3. **Automated Lineage Testing (`tests/test_model.py`):**
-   The test `test_model_versioning_metadata` verifies that `modell.joblib` and `matvarden.json` are created with valid `commit`, `datafil`, `data_sha256`, and evaluation metric fields:
+   The test `test_model_versioning_metadata` verifies that `model.joblib` and `metrics.json` are created with valid `commit`, `data_file`, `data_sha256`, and evaluation metric fields:
+
    ```bash
    uv run pytest tests/test_model.py
    ```
@@ -214,14 +215,28 @@ ci-cd-pipeline/
 │   └── kundbas_ny_leverans.csv
 ├── validation/
 │   └── schema.py
+├── docs/
+│   ├── fastapi_prediction_prompt.png
+│   └── fastapi_prediction_response.png
+├── outputs/
+│   ├── model.joblib
+│   ├── metrics.json
+│   └── call_list.csv
 ├── src/
 │   └── churn/
+│         ├── __init__.py
+│         ├── api.py
+│         ├── data.py
+│         ├── evaluate.py
+│         ├── model.py
+│         └── score.py
 ├── tests/
-│   ├── demo_datagrind.py
+│   ├── test_api.py
 │   ├── test_data.py
 │   ├── test_features.py
 │   └── test_model.py
 ├── create_issues.py
+├── issues_followup.json
 ├── issues.json
 ├── .gitignore
 ├── pyproject.toml
