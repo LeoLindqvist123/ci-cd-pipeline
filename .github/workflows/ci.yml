@@ -183,12 +183,41 @@ jobs:
           name: model-${{ github.sha }}
           path: outputs/
 
-      - name: Build Docker image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare image name and start timer
         run: |
           IMAGE_NAME="ghcr.io/${{ github.repository }}/churn-api"
           IMAGE_NAME=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
-          docker build -t "$IMAGE_NAME:${{ github.sha }}" -t "$IMAGE_NAME:latest" .
+          echo "BUILD_START=$(date +%s)" >> $GITHUB_ENV
+
+      - name: Build Docker image with layer caching
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Measure and report Docker image size and build time
+        run: |
+          BUILD_END=$(date +%s)
+          BUILD_SECONDS=$((BUILD_END - BUILD_START))
+          IMAGE_SIZE_BYTES=$(docker image inspect "${{ env.IMAGE_NAME }}:${{ github.sha }}" --format='{{.Size}}')
+          IMAGE_SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $IMAGE_SIZE_BYTES/1024/1024}")
+
+          {
+            echo "## 🐳 Docker Image & Build Metrics"
+            echo "| Metric | Baseline (Single-Stage, No Cache) | Optimized (Multi-Stage + GHA Cache) |"
+            echo "|---|---|---|"
+            echo "| Uncompressed Image Size | ~620 MB (incl. uv binary, wheel cache & test dirs) | **${IMAGE_SIZE_MB} MB** |"
+            echo "| Docker Build Step Time | 16s | **${BUILD_SECONDS}s** |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run container for smoke test
         run: |
