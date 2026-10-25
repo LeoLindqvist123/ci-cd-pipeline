@@ -159,13 +159,31 @@ jobs:
           name: model-candidate-${{ github.sha }}
           path: outputs/
 
-      - name: Write metrics and lineage to Summary
+      - name: Write metrics to Summary
         run: |
-          echo "## Metrics and Lineage for model-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/matvarden.json >> $GITHUB_STEP_SUMMARY
+          uv run python - <<'EOF'
+          import json
+          import logging
+          import os
+          import sys
+
+          logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+          log = logging.getLogger("metrics")
+
+          sha = os.environ["GITHUB_SHA"]
+          with open("outputs/matvarden.json", encoding="utf-8") as file:
+              metrics = json.load(file)
+
+          log.info("Metrics for model-%s:", sha)
+          for key, value in metrics.items():
+              log.info("%s: %s", key, value)
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"## Metrics for model-{sha}\n\n")
+              summary.write("| Metric | Value |\n|---|---|\n")
+              for key, value in metrics.items():
+                  summary.write(f"| {key} | {value} |\n")
+          EOF
 
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
