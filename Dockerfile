@@ -13,7 +13,11 @@ COPY pyproject.toml uv.lock ./
 COPY src/ /app/src/
 COPY outputs/ /app/outputs/
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev \
+    && useradd --create-home --shell /bin/bash appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8000
 
