@@ -198,6 +198,30 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
    uv run pytest tests/test_model.py
    ```
 
+## 🐳 Docker Packaging, Smoke Test & GHCR
+
+The approved churn model and FastAPI service are packaged into a Docker image, verified with an automated smoke test, and published to GitHub Container Registry (`ghcr.io`).
+
+### Build and run locally
+Make sure the model has been trained first (`uv run python -m churn.model`), then build and start the container:
+```bash
+docker build -t churn-api:local .
+docker run -d --name churn-test-service -p 8000:8000 churn-api:local
+```
+
+### Run the container smoke test
+The smoke test (`tests/smoke_test.py`) polls `GET /health` until the container is ready and verifies that `POST /predict` returns a valid prediction (`0` or `1`) and probability (`0.0–1.0`):
+```bash
+uv run python tests/smoke_test.py http://localhost:8000
+docker rm -f churn-test-service
+```
+
+### CI/CD & GHCR Publishing
+In `.github/workflows/ci.yml`, the `package` job runs after `evaluate`:
+1. Downloads the approved `model-<sha>` artifact.
+2. Builds the Docker image and runs `tests/smoke_test.py` against the live container.
+3. On `push` events to `main`, pushes the verified image to `ghcr.io/leolindqvist123/ci-cd-pipeline/churn-api` tagged with both `<commit-sha>` and `latest`.
+
 ## 📁 Project Structure
 
 ```text
@@ -231,6 +255,7 @@ ci-cd-pipeline/
 │         ├── model.py
 │         └── score.py
 ├── tests/
+│   ├── smoke_test.py
 │   ├── test_api.py
 │   ├── test_data.py
 │   ├── test_features.py
@@ -238,7 +263,9 @@ ci-cd-pipeline/
 ├── create_issues.py
 ├── issues_followup.json
 ├── issues.json
+├── .dockerignore
 ├── .gitignore
+├── Dockerfile
 ├── pyproject.toml
 ├── README.md
 └── uv.lock
@@ -275,11 +302,11 @@ ci-cd-pipeline/
 
 ### 5. Docker & Artifact Publishing
 
-- [ ] Create Dockerfile for the model-serving application
-- [ ] Build and run the Docker image
-- [ ] Add a container smoke test
-- [ ] Push verified images to GitHub Container Registry (GHCR)
-- [ ] Tag published images with the relevant commit SHA
+- [x] Create Dockerfile for the model-serving application
+- [x] Build and run the Docker image
+- [x] Add a container smoke test
+- [x] Push verified images to GitHub Container Registry (GHCR)
+- [x] Tag published images with the relevant commit SHA
 
 ### 6. Documentation & Final Verification
 

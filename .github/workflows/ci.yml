@@ -34,6 +34,8 @@ jobs:
               - "tests/**"
               - "validation/**"
               - "pyproject.toml"
+              - "Dockerfile"
+              - ".dockerignore"
               - ".github/workflows/**"
               - ".github/actions/**"
 
@@ -164,9 +166,65 @@ jobs:
           name: model-${{ github.sha }}
           path: outputs/
 
+  package:
+    name: Package and Publish Docker Image
+    needs: evaluate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Download approved model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: model-${{ github.sha }}
+          path: outputs/
+
+      - name: Build Docker image
+        run: |
+          IMAGE_NAME="ghcr.io/${{ github.repository }}/churn-api"
+          IMAGE_NAME=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+          docker build -t "$IMAGE_NAME:${{ github.sha }}" -t "$IMAGE_NAME:latest" .
+
+      - name: Run container for smoke test
+        run: |
+          docker run -d --name churn-test-service -p 8000:8000 "${{ env.IMAGE_NAME }}:${{ github.sha }}"
+
+      - name: Run container smoke test
+        run: |
+          python tests/smoke_test.py http://localhost:8000
+
+      - name: Inspect container logs on failure
+        if: failure()
+        run: |
+          docker logs churn-test-service || true
+
+      - name: Stop and cleanup container
+        if: always()
+        run: |
+          docker rm -f churn-test-service || true
+
+      - name: Log in to GitHub Container Registry
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Docker image to GHCR (main branch only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          docker push "${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker push "${{ env.IMAGE_NAME }}:latest"
+
   ci-complete:
     name: CI Status Check
-    needs: [changes, test, validate, train, evaluate]
+    needs: [changes, test, validate, train, evaluate, package]
     if: always()
     runs-on: ubuntu-latest
     steps:
