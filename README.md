@@ -197,6 +197,16 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
    uv run pytest tests/test_model.py
    ```
 
+   ## 🐳 Docker Packaging, Smoke Test & GHCR
+
+The approved churn model and FastAPI service are packaged into a Docker image, verified with an automated smoke test, and published to GitHub Container Registry (`ghcr.io`).
+
+### Build and run locally
+Make sure the model has been trained first (`uv run python -m churn.model`), then build and start the container:
+```bash
+docker build -t churn-api:local .
+docker run -d --name churn-test-service -p 8000:8000 churn-api:local
+
 ## 📁 Project Structure
 
 ```text
