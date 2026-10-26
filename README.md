@@ -285,20 +285,20 @@ ci-cd-pipeline/
 - [x] Create Pandera schema for data validation
 - [x] Set up CI pipeline for Pandera data validation tests
 - [x] Set up CI pipeline for model training and unit tests
-- [ ] Verify that invalid data blocks training in the actual pipeline
+- [X] Verify that invalid data blocks training in the actual pipeline
 
 ### 3. Machine Learning
-- [ ] Analyze model thresholds and document findings
+- [X] Analyze model thresholds and document findings
 - [ ] Refine feature engineering pipeline
-- [ ] Version approved model artifacts with commit and data metadata
-- [ ] Verify that failing model evaluation prevents publication
+- [X] Version approved model artifacts with commit and data metadata
+- [X] Verify that failing model evaluation prevents publication
 
 ### 4. Model Serving & FastAPI
 
-- [ ] Add FastAPI prediction endpoint (`POST /predict`)
-- [ ] Add health endpoint (`GET /health`)
-- [ ] Add automated API tests
-- [ ] Document how to run and test the API locally
+- [X] Add FastAPI prediction endpoint (`POST /predict`)
+- [X] Add health endpoint (`GET /health`)
+- [X] Add automated API tests
+- [X] Document how to run and test the API locally
 
 ### 5. Docker & Artifact Publishing
 

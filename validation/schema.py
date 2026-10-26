@@ -1,7 +1,11 @@
+import logging
 import sys
 
 import pandas as pd
 import pandera.pandas as pa
+
+logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+log = logging.getLogger("validate")
 
 SCHEMA = pa.DataFrameSchema(
     {
@@ -19,21 +23,25 @@ SCHEMA = pa.DataFrameSchema(
 )
 
 datafile = sys.argv[1] if len(sys.argv) > 1 else "data/kundbas.csv"
-print(f"Validating {datafile}")
+log.info("Validating %s", datafile)
 
 df = pd.read_csv(datafile)
 df = df.rename(columns={"manadsavgift": "manadskostnad"})
 
 try:
     SCHEMA.validate(df, lazy=True)
-    print("Validation OK")
+    log.info("Validation OK")
 except pa.errors.SchemaErrors as exc:
     errors = exc.failure_cases.fillna({"column": "<schema>"})
 
-    print(f"Validation failed: {len(errors)} errors\n")
-    print("=== Errors per column and check ===")
-    print(errors.groupby(["column", "check"]).size().to_string())
-    print("\n=== Examples per column/check ===")
+    log.error("Validation failed: %s errors\n", len(errors))
+
+    per_check = errors.groupby(["column", "check"]).size().to_string()
+    log.error("=== Errors per column and check ===\n%s", per_check)
+
     examples = errors.groupby(["column", "check"]).head(3).sort_values(["column", "check"])
-    print(examples[["column", "check", "failure_case", "index"]].to_string(index=False))
+    log.error(
+        "\n=== Examples per column/check ===\n%s",
+        examples[["column", "check", "failure_case", "index"]].to_string(index=False),
+    )
     sys.exit(1)
