@@ -23,12 +23,19 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    CHURN_MODEL_PATH=/app/outputs/model.joblib
 
 RUN useradd --create-home --shell /bin/bash appuser
 
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+COPY --from=builder --chown=appuser:appuser /app/src /app/src
 COPY --chown=appuser:appuser outputs/ /app/outputs/
+
+# Handle backwards-compatibility if artifact was named modell.joblib instead of model.joblib
+RUN if [ -f /app/outputs/modell.joblib ] && [ ! -f /app/outputs/model.joblib ]; then \
+        cp /app/outputs/modell.joblib /app/outputs/model.joblib; \
+    fi && chown -R appuser:appuser /app/outputs
 
 USER appuser
 
