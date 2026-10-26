@@ -221,7 +221,6 @@ In `.github/workflows/ci.yml`, the `package` job runs after `evaluate`:
 1. Downloads the approved `model-<sha>` artifact.
 2. Builds the Docker image and runs `tests/smoke_test.py` against the live container.
 3. On `push` events to `main`, pushes the verified image to `ghcr.io/leolindqvist123/ci-cd-pipeline/churn-api` tagged with both `<commit-sha>` and `latest`.
-   
 
 ## 📁 Project Structure
 
