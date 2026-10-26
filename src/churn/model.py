@@ -1,6 +1,6 @@
-"""Träning och utvärdering. Kör:  python -m churn.model
+"""Model training and evaluation. Run: python -m churn.model
 
-Skriver outputs/modell.joblib och outputs/matvarden.json.
+Writes outputs/model.joblib and outputs/metrics.json.
 """
 
 import hashlib
@@ -23,67 +23,119 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from churn.data import DATAKATALOG, KATEGORISKA, NUMERISKA, dela_upp, las_data, skapa_features
+from churn.data import (
+    CATEGORICAL_FEATURES,
+    DATA_DIR,
+    NUMERIC_FEATURES,
+    create_features,
+    load_data,
+    split_features_and_target,
+)
 
 SEED = 42
-DATAFIL = "kundbas.csv"
+DATA_FILE = "kundbas.csv"
 
 
-def bygg_modell() -> Pipeline:
-    forbehandling = ColumnTransformer(
+def build_model() -> Pipeline:
+    preprocessing = ColumnTransformer(
         [
-            ("num", make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), NUMERISKA),
-            ("kat", OneHotEncoder(handle_unknown="ignore"), KATEGORISKA),
+            (
+                "numeric",
+                make_pipeline(
+                    SimpleImputer(strategy="median"),
+                    StandardScaler(),
+                ),
+                    NUMERIC_FEATURES,
+            ),
+            ("categorical",
+             OneHotEncoder(handle_unknown="ignore"),
+             CATEGORICAL_FEATURES,
+            ),
         ]
     )
     return Pipeline(
         [
-            ("forbehandling", forbehandling),
-            ("klassificerare", LogisticRegression(max_iter=1000, random_state=SEED)),
+            ("preprocessing", preprocessing),
+            (
+                "classifier",
+                LogisticRegression(max_iter=1000, random_state=SEED),
+            ),
         ]
     )
 
 
-def trana_och_utvardera(filnamn: str = DATAFIL) -> tuple[Pipeline, dict[str, float]]:
-    X, y = dela_upp(skapa_features(las_data(filnamn)))
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=SEED, stratify=y
+def train_and_evaluate(
+    filename: str = DATA_FILE,
+) -> tuple[Pipeline, dict[str, float]]:
+    features, target = split_features_and_target(
+        create_features(load_data(filename))
     )
-    modell = bygg_modell().fit(X_train, y_train)
-    probabilities = modell.predict_proba(X_test)[:, 1]
-    matvarden = {
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        features,
+        target,
+        test_size=0.25,
+        random_state=SEED,
+        stratify=target,
+    )
+
+    model = build_model().fit(X_train, y_train)
+    probabilities = model.predict_proba(X_test)[:, 1]
+    metrics = {
         "roc_auc": float(roc_auc_score(y_test, probabilities)),
-        "accuracy": float(accuracy_score(y_test, modell.predict(X_test))),
+        "accuracy": float(accuracy_score(y_test, model.predict(X_test))
+    ),
     }
 
     # Analyze different classification thresholds
     thresholds = [0.3, 0.4, 0.5, 0.6, 0.7]
 
     for threshold in thresholds:
-        prediktioner = (probabilities >= threshold).astype(int)
+        threshold_predictions = (probabilities >= threshold).astype(int)
 
         prefix = f"threshold_{threshold:.1f}"
 
-        matvarden[f"{prefix}_precision"] = float(
-            precision_score(y_test, prediktioner, zero_division=0)
+        metrics[f"{prefix}_precision"] = float(
+        precision_score(
+            y_test,
+            threshold_predictions,
+            zero_division=0,
+            )
         )
-        matvarden[f"{prefix}_recall"] = float(recall_score(y_test, prediktioner, zero_division=0))
-        matvarden[f"{prefix}_f1"] = float(f1_score(y_test, prediktioner, zero_division=0))
+        metrics[f"{prefix}_recall"] = float(
+        recall_score(y_test,
+                threshold_predictions,
+                zero_division=0,
+             )
+        )
+        metrics[f"{prefix}_f1"] = float(
+            f1_score(
+                y_test,
+                threshold_predictions,
+                zero_division=0,
+            )
+        )
 
-    return modell, matvarden
+    return model, metrics
 
 
-def main(utkatalog: Path = Path("outputs")) -> None:
-    modell, matvarden = trana_och_utvardera()
-    # Härkomst: vilken commit och vilken datafil modellen kom från.
-    # GITHUB_SHA finns bara i GitHub Actions. Lokalt står det "lokal".
-    matvarden["commit"] = os.environ.get("GITHUB_SHA", "lokal")
-    matvarden["datafil"] = DATAFIL
-    matvarden["data_sha256"] = hashlib.sha256((DATAKATALOG / DATAFIL).read_bytes()).hexdigest()
-    utkatalog.mkdir(exist_ok=True)
-    joblib.dump(modell, utkatalog / "modell.joblib")
-    (utkatalog / "matvarden.json").write_text(json.dumps(matvarden, indent=2))
-    print(json.dumps(matvarden, indent=2))
+def main(output_dir: Path = Path("outputs")) -> None:
+    model, metrics = train_and_evaluate()
+
+    # Track the commit and data file used to produce the model.
+    # GITHUB_SHA is available in GitHub Actions; locally, use "local".
+    metrics["commit"] = os.environ.get("GITHUB_SHA", "local")
+    metrics["data_file"] = DATA_FILE
+    metrics["data_sha256"] = hashlib.sha256(
+        (DATA_DIR / DATA_FILE).read_bytes()
+        ).hexdigest()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, output_dir / "model.joblib")
+    (output_dir / "metrics.json").write_text(
+        json.dumps(metrics, indent=2)
+    )
+
+    print(json.dumps(metrics, indent=2))
 
 
 if __name__ == "__main__":
