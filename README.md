@@ -255,6 +255,7 @@ ci-cd-pipeline/
 │         ├── model.py
 │         └── score.py
 ├── tests/
+│   ├── smoke_test.py
 │   ├── test_api.py
 │   ├── test_data.py
 │   ├── test_features.py
@@ -262,7 +263,9 @@ ci-cd-pipeline/
 ├── create_issues.py
 ├── issues_followup.json
 ├── issues.json
+├── .dockerignore
 ├── .gitignore
+├── Dockerfile
 ├── pyproject.toml
 ├── README.md
 └── uv.lock
@@ -299,11 +302,11 @@ ci-cd-pipeline/
 
 ### 5. Docker & Artifact Publishing
 
-- [ ] Create Dockerfile for the model-serving application
-- [ ] Build and run the Docker image
-- [ ] Add a container smoke test
-- [ ] Push verified images to GitHub Container Registry (GHCR)
-- [ ] Tag published images with the relevant commit SHA
+- [x] Create Dockerfile for the model-serving application
+- [x] Build and run the Docker image
+- [x] Add a container smoke test
+- [x] Push verified images to GitHub Container Registry (GHCR)
+- [x] Tag published images with the relevant commit SHA
 
 ### 6. Documentation & Final Verification
 
