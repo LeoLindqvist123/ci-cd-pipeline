@@ -33,6 +33,7 @@ jobs:
               - "data/**"
               - "tests/**"
               - "kontroll/**"
+              - "validation/**"
               - "pyproject.toml"
               - "Dockerfile"
               - ".dockerignore"
@@ -89,7 +90,11 @@ jobs:
           EXPECT: ${{ matrix.expect }}
         run: |
           set +e
-          uv run python kontroll/schema.py "$DATAFILE" 2>&1 | tee validation.log
+          SCHEMA_SCRIPT="kontroll/schema.py"
+          if [[ -f "validation/schema.py" ]]; then
+            SCHEMA_SCRIPT="validation/schema.py"
+          fi
+          uv run python "$SCHEMA_SCRIPT" "$DATAFILE" 2>&1 | tee validation.log
           status=${PIPESTATUS[0]}
           set -e
 
@@ -150,11 +155,15 @@ jobs:
 
       - name: Write metrics and lineage to Summary
         run: |
+          METRICS_FILE="outputs/matvarden.json"
+          if [[ -f "outputs/metrics.json" ]]; then
+            METRICS_FILE="outputs/metrics.json"
+          fi
           echo "## Metrics and Lineage for model-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-          jq -r 'to_entries[] | "| \(.key) | \(.value) |"' outputs/matvarden.json >> $GITHUB_STEP_SUMMARY
+          jq -r 'to_entries[] | "| \(.key) | \(.value) |"' "$METRICS_FILE" >> $GITHUB_STEP_SUMMARY
 
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
@@ -209,7 +218,7 @@ jobs:
           docker rm -f churn-test-service || true
 
       - name: Log in to GitHub Container Registry
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -261,4 +270,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: call-list-${{ github.sha }}
-          path: outputs/ringlista.csv
+          path: outputs/
