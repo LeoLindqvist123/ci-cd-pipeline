@@ -1,4 +1,204 @@
-package:
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - "src/**"
+              - "data/**"
+              - "tests/**"
+              - "validation/**"
+              - "pyproject.toml"
+              - "Dockerfile"
+              - ".dockerignore"
+              - ".github/workflows/**"
+              - ".github/actions/**"
+
+  test:
+    name: Lint and Test
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup-project
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Check code quality with Ruff
+        run: uv run ruff check .
+
+      - name: Run tests with Pytest
+        run: uv run pytest
+
+  validate:
+    name: Validate Data (${{ matrix.datafile }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - datafile: data/kundbas.csv
+            expect: pass
+          - datafile: data/kundbas_ny_leverans.csv
+            expect: fail
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup-project
+
+      - name: Validate data file
+        env:
+          DATAFILE: ${{ matrix.datafile }}
+          EXPECT: ${{ matrix.expect }}
+        run: |
+          uv run python - <<'EOF'
+          import logging
+          import os
+          import subprocess
+          import sys
+
+          logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+          log = logging.getLogger("validate")
+
+          datafile = os.environ["DATAFILE"]
+          expect = os.environ["EXPECT"]
+
+          result = subprocess.run(
+              [sys.executable, "validation/schema.py", datafile],
+              stdout=subprocess.PIPE,
+              stderr=subprocess.STDOUT,
+              text=True,
+          )
+          output = result.stdout.strip()
+          for line in output.splitlines():
+              log.info(line)
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"### `{datafile}` (expected: {expect})\n```\n{output}\n```\n")
+
+          passed = result.returncode == 0
+          if expect == "pass" and not passed:
+              log.error("::error::%s should pass validation but failed", datafile)
+              sys.exit(1)
+          if expect == "fail" and passed:
+              log.error("::error::%s should fail validation but passed - is the schema too loose?", datafile)
+              sys.exit(1)
+
+          log.info("Result matched expectation: %s", expect)
+          EOF
+
+  train:
+    name: Train Model
+    needs: [test, validate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup-project
+
+      - name: Train churn model
+        run: uv run python -m churn.model
+
+      - name: Upload candidate model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-candidate-${{ github.sha }}
+          path: outputs/
+          retention-days: 1
+
+  evaluate:
+    name: Evaluate and Version Model
+    needs: train
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup-project
+
+      - name: Download candidate model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: model-candidate-${{ github.sha }}
+          path: outputs/
+
+      - name: Write metrics to Summary
+        run: |
+          uv run python - <<'EOF'
+          import json
+          import logging
+          import os
+          import sys
+
+          logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+          log = logging.getLogger("metrics")
+
+          sha = os.environ["GITHUB_SHA"]
+          with open("outputs/metrics.json", encoding="utf-8") as file:
+              metrics = json.load(file)
+
+          log.info("Metrics for model-%s:", sha)
+          for key, value in metrics.items():
+              log.info("%s: %s", key, value)
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"## Metrics for model-{sha}\n\n")
+              summary.write("| Metric | Value |\n|---|---|\n")
+              for key, value in metrics.items():
+                  summary.write(f"| {key} | {value} |\n")
+          EOF
+
+      - name: Evaluate model against threshold
+        run: uv run python -m churn.evaluate
+
+      - name: Version approved model artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-${{ github.sha }}
+          path: outputs/
+
+  package:
     name: Package and Publish Docker Image
     needs: evaluate
     runs-on: ubuntu-latest
@@ -78,3 +278,63 @@ package:
         run: |
           docker push "${{ env.IMAGE_NAME }}:${{ github.sha }}"
           docker push "${{ env.IMAGE_NAME }}:latest"
+
+  ci-complete:
+    name: CI Status Check
+    needs: [changes, test, validate, train, evaluate, package]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify that no job failed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'EOF'
+          import json
+          import logging
+          import os
+          import sys
+
+          logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+          log = logging.getLogger("ci-status")
+
+          jobs = json.loads(os.environ["NEEDS"])
+
+          for job, info in jobs.items():
+              log.info("%s: %s", job, info["result"])
+
+          failed = [job for job, info in jobs.items() if info["result"] in ("failure", "cancelled")]
+
+          if failed:
+              log.error("::error::One or more jobs failed: %s", ", ".join(failed))
+              sys.exit(1)
+
+          log.info("All checks passed.")
+          EOF
+
+  call-list:
+    name: Generate Call List
+    needs: evaluate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup-project
+
+      - name: Download model artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: model-${{ github.sha }}
+          path: outputs/
+
+      - name: Score customers
+        run: uv run python -m churn.score
+
+      - name: Upload call list artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: call-list-${{ github.sha }}
+          path: outputs/call_list.csv
