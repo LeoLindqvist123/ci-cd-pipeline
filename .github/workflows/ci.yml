@@ -32,7 +32,7 @@ jobs:
               - "src/**"
               - "data/**"
               - "tests/**"
-              - "kontroll/**"
+              - "validation/**"
               - "pyproject.toml"
               - ".github/workflows/**"
               - ".github/actions/**"
@@ -80,6 +80,7 @@ jobs:
 
       - name: Install dependencies
         uses: ./.github/actions/setup-project
+
       - name: Validate data file
         env:
           DATAFILE: ${{ matrix.datafile }}
@@ -98,7 +99,7 @@ jobs:
           expect = os.environ["EXPECT"]
 
           result = subprocess.run(
-              [sys.executable, "kontroll/schema.py", datafile],
+              [sys.executable, "validation/schema.py", datafile],
               stdout=subprocess.PIPE,
               stderr=subprocess.STDOUT,
               text=True,
@@ -171,7 +172,7 @@ jobs:
           log = logging.getLogger("metrics")
 
           sha = os.environ["GITHUB_SHA"]
-          with open("outputs/matvarden.json", encoding="utf-8") as file:
+          with open("outputs/metrics.json", encoding="utf-8") as file:
               metrics = json.load(file)
 
           log.info("Metrics for model-%s:", sha)
@@ -187,7 +188,7 @@ jobs:
 
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
-        
+
       - name: Version approved model artifact
         if: success()
         uses: actions/upload-artifact@v4
@@ -253,4 +254,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: call-list-${{ github.sha }}
-          path: outputs/ringlista.csv
+          path: outputs/call_list.csv

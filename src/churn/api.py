@@ -10,11 +10,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sklearn.pipeline import Pipeline
 
-from churn.data import FEATURES
-from churn.data import skapa_features as create_features
+from churn.data import FEATURES, create_features
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL_PATH = PROJECT_ROOT / "outputs" / "modell.joblib"
+DEFAULT_MODEL_PATH = PROJECT_ROOT / "outputs" / "model.joblib"
 
 MODEL_PATH = Path(
     os.getenv("CHURN_MODEL_PATH", str(DEFAULT_MODEL_PATH))
