@@ -1,10 +1,10 @@
-"""Kvalitetsgrind. Kör:  python -m churn.evaluate [outputs/matvarden.json]
+"""Quality gate. Run: python -m churn.evaluate [outputs/metrics.json]
 
-Läser mätvärdena från en tränad modell och avslutar med felkod 1 om ROC AUC är under
-tröskeln. Ett steg som avslutar med felkod blir rött i GitHub Actions, och då stoppas
-de jobb som väntar på det.
+Reads metrics from a trained model and exits with error code 1 if ROC AUC
+is below the threshold. A step that exits with an error code turns red in
+GitHub Actions, stopping jobs that depend on it.
 
-Tröskeln kan ändras med miljövariabeln MIN_ROC_AUC.
+The threshold can be changed using the MIN_ROC_AUC environment variable.
 """
 
 import json
@@ -14,25 +14,31 @@ from pathlib import Path
 
 # Chosen from the baseline and the variance in ROC AUC across random seeds,
 # see analysis/seed_variance.py and README "Model Threshold Analysis".
-STANDARDTROSKEL = 0.74
+DEFAULT_THRESHOLD = 0.74
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
-    sokvag = Path(argv[0]) if argv else Path("outputs/matvarden.json")
-    troskel = float(os.environ.get("MIN_ROC_AUC", STANDARDTROSKEL))
+    file_path = Path(argv[0]) if argv else Path("outputs/metrics.json")
+    threshold = float(os.environ.get("MIN_ROC_AUC", DEFAULT_THRESHOLD))
 
-    if not sokvag.exists():
-        print(f"FEL: hittar inte {sokvag}. Har modellen tränats, eller laddats ner hit?")
+    if not file_path.exists():
+        print(f"ERROR: Cannot find {file_path}. Has the model been trained or downloaded here?")
         return 1
 
-    matvarden = json.loads(sokvag.read_text())
-    print(json.dumps(matvarden, indent=2))
+    metrics = json.loads(file_path.read_text())
+    print(json.dumps(metrics, indent=2))
 
-    if matvarden["roc_auc"] < troskel:
-        print(f"FEL: ROC AUC {matvarden['roc_auc']:.3f} är under tröskeln {troskel:.2f}.")
+    if metrics["roc_auc"] < threshold:
+        print(
+            f"ERROR: ROC AUC {metrics['roc_auc']:.3f} is below "
+            f"the threshold of {threshold:.2f}."
+        )
         return 1
-    print(f"OK: ROC AUC {matvarden['roc_auc']:.3f} klarar tröskeln {troskel:.2f}.")
+    print(
+        f"OK: ROC AUC {metrics['roc_auc']:.3f} meets "
+        f"the threshold of {threshold:.2f}."
+    )
     return 0
 
 
