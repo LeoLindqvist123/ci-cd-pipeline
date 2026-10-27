@@ -1,4 +1,4 @@
-"""Testing tracking"""
+"""Tests for the optional MLflow tracking module."""
 
 import pytest
 

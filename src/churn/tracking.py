@@ -2,7 +2,7 @@
 
 Logging is only active when MLFLOW_TRACKING_URI is set, e.g.:
     MLFLOW_TRACKING_URI=sqlite:///mlflow.db uv run python -m churn.model
-Without it, training works exaclty as before.
+Without it, training works exactly as before.
 """
 
 import os
@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 
 EXPERIMENT_NAME = "churn"
 REGISTERED_MODEL_NAME = "churn-model"
+
 
 def tracking_enabled() -> bool:
     """Return True if an MLflow tracking URI is configured."""
@@ -21,7 +22,7 @@ def log_training_run(
         model: Pipeline,
         metrics: dict,
         params: dict,
-    ) -> str | None:
+) -> str | None:
     """Log params, metrics, lineage tags and the model to MLflow.
 
     Returns the MLflow run id, or None if tracking is disabled.
@@ -29,7 +30,6 @@ def log_training_run(
     if not tracking_enabled():
         print("MLFLOW_TRACKING_URI is not set, skipping MLflow logging.")
         return None
-
 
     # Imported here so the package still works without the 'tracking' extra.
     import mlflow
@@ -57,6 +57,8 @@ def log_training_run(
         }
         mlflow.log_metrics(numeric_metrics)
 
+        # skops only loads types it explicitly trusts. numpy.dtype comes from
+        # the OneHotEncoder's output dtype and is a plain NumPy data type.
         mlflow.sklearn.log_model(
             model,
             name="model",
@@ -64,6 +66,7 @@ def log_training_run(
         )
 
         return run.info.run_id
+
 
 def register_model(run_id: str, alias: str = "champion") -> str | None:
     """Register the model from a run in the Model Registry and set an alias.
