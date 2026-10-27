@@ -131,14 +131,9 @@ def main(output_dir: Path = Path("outputs")) -> None:
     metrics["data_sha256"] = hashlib.sha256(
         (DATA_DIR / DATA_FILE).read_bytes()
         ).hexdigest()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, output_dir / "model.joblib")
-    (output_dir / "metrics.json").write_text(
-        json.dumps(metrics, indent=2)
-    )
 
     # Log to MLflow if MLFLOW_TRACKING_URI is set (no-op otherwise).
-    log_training_run(
+    run_id = log_training_run(
         model,
         metrics,
         params={
@@ -146,6 +141,15 @@ def main(output_dir: Path = Path("outputs")) -> None:
             "test_size": TEST_SIZE,
             "classifier": type(model.named_steps["classifier"]).__name__,
         },
+    )
+
+    if run_id is not None:
+        metrics["mlflow_run_id"] = run_id
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, output_dir / "model.joblib")
+    (output_dir / "metrics.json").write_text(
+        json.dumps(metrics, indent=2)
     )
 
     print(json.dumps(metrics, indent=2))
