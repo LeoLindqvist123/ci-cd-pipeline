@@ -10,7 +10,7 @@ import os
 from sklearn.pipeline import Pipeline
 
 EXPERIMENT_NAME = "churn"
-
+REGISTERED_MODEL_NAME = "churn-model"
 
 def tracking_enabled() -> bool:
     """Return True if an MLflow tracking URI is configured."""
@@ -65,3 +65,26 @@ def log_training_run(
 
         return run.info.run_id
 
+def register_model(run_id: str, alias: str = "champion") -> str | None:
+    """Register the model from a run in the Model Registry and set an alias.
+
+    Returns the new model version, or None if tracking is disabled.
+    """
+    if not tracking_enabled():
+        print("MLFLOW_TRACKING_URI is not set, skipping model registration.")
+        return None
+
+    import mlflow
+
+    model_version = mlflow.register_model(
+        model_uri=f"runs:/{run_id}/model",
+        name=REGISTERED_MODEL_NAME,
+    )
+    mlflow.MlflowClient().set_registered_model_alias(
+        name=REGISTERED_MODEL_NAME,
+        alias=alias,
+        version=model_version.version,
+    )
+
+    print(f"Registered {REGISTERED_MODEL_NAME} version {model_version.version} as '{alias}'.")
+    return str(model_version.version)
