@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from churn import api
+from churn.artifact_integrity import write_checksum
 from churn.data import FEATURES
 
 client = TestClient(api.app)
@@ -130,3 +131,23 @@ def test_predict_maps_api_fields_to_training_columns(monkeypatch):
     assert mapped["supportarenden_12m"] == 4
     assert mapped["region"] == "Väst"
     assert mapped["abonnemang"] == "Standard"
+
+def test_health_returns_503_when_model_checksum_is_invalid(
+    monkeypatch, tmp_path
+):
+    model_path = tmp_path / "model.joblib"
+    model_path.write_bytes(b"original model")
+
+    write_checksum(model_path)
+
+    # Simulate corruption after the checksum was created.
+    model_path.write_bytes(b"modified model")
+
+    monkeypatch.setattr(api, "MODEL_PATH", model_path)
+
+    response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "The trained model could not be loaded."
+    )
