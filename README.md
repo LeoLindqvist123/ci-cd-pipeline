@@ -198,6 +198,25 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
    uv run pytest tests/test_model.py
    ```
 
+### Model Artifact Integrity
+
+The pipeline verifies the integrity of the trained model using SHA-256 checksums.
+
+After training, the pipeline saves the model as `outputs/model.joblib` and generates a corresponding `outputs/model.joblib.sha256` checksum file.
+
+Before the model is used, the checksum is verified at the following stages:
+
+- **Evaluation:** verifies the downloaded candidate model before evaluation.
+- **Docker packaging:** verifies the approved model artifact before building the image.
+- **Call-list generation:** verifies the model before scoring customers.
+- **API startup:** verifies the model before loading it into the FastAPI service.
+
+If the model is missing, its checksum is missing, or its contents no longer match the checksum, verification fails. The CI job stops, or the API rejects the model instead of loading it.
+
+Automated tests cover valid artifacts, modified model files, missing files and API behaviour when integrity verification fails.
+
+**Limitation:** This checksum mechanism detects changes when the saved checksum remains trustworthy. It does not independently authenticate the model and checksum if both are replaced.
+
 ## 🐳 Docker Packaging, Smoke Test & GHCR
 
 The approved churn model and FastAPI service are packaged into a Docker image, verified with an automated smoke test, and published to GitHub Container Registry (`ghcr.io`).
@@ -245,17 +264,20 @@ ci-cd-pipeline/
 ├── outputs/
 │   ├── model.joblib
 │   ├── metrics.json
+│   ├── model.joblib.sha256
 │   └── call_list.csv
 ├── src/
 │   └── churn/
 │         ├── __init__.py
 │         ├── api.py
+│         ├── artifact_integrity.py
 │         ├── data.py
 │         ├── evaluate.py
 │         ├── model.py
 │         └── score.py
 ├── tests/
 │   ├── smoke_test.py
+│   ├── test_artifact_integrity.py
 │   ├── test_api.py
 │   ├── test_data.py
 │   ├── test_features.py
