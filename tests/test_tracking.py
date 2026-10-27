@@ -22,5 +22,23 @@ def test_tracking_disabled_returns_none(results, monkeypatch):
     assert result is None
 
 
-def test_tracking_enabled_logs_run():
-    pass
+def test_tracking_enabled_logs_run(results, tmp_path, monkeypatch):
+    """With MLFLOW_TRACKING_URI set, a run is logged with tags, params and metrics."""
+    mlflow = pytest.importorskip("mlflow")
+    monkeypatch.chdir(tmp_path)
+    db_path = (tmp_path / "mlflow.db").as_posix()
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", f"sqlite:///{db_path}")
+
+    model, metrics = results
+    updated_metrics = {**metrics, "commit": "abc1234567"}
+    params = {"seed": 42}
+
+    run_id = log_training_run(model, updated_metrics, params)
+
+    assert run_id is not None
+
+    run = mlflow.MlflowClient().get_run(run_id)
+
+    assert run.data.tags["commit"] == "abc1234567"
+    assert run.data.params["seed"] == "42"
+    assert run.data.metrics["roc_auc"] == pytest.approx(metrics["roc_auc"])
