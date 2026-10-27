@@ -214,7 +214,7 @@ MLflow is an optional add-on to the versioning above. `metrics.json` and the qua
    The MLflow run id is saved in `outputs/metrics.json` as `mlflow_run_id`, so later steps know exactly which run to register.
 
 2. **Registry (`src/churn/register.py`):**
-   `uv run python -m churn.register` reads `mlflow_run_id` from `metrics.json`, registers the model as a new version of `churn-model` and sets the alias `champion`. It should only run after the quality gate has passed. It exits with code 1 if `mlflow_run_id` is missing.
+   `uv run python -m churn.register` reads `mlflow_run_id` from `metrics.json`, registers the model as a new version of `churn-model` and sets the alias `champion`. It should only run after the quality gate has passed. It exits with code 1 if `mlflow_run_id` is missing or if the model could not be registered (for example when `MLFLOW_TRACKING_URI` is not set).
 
 3. **Optional dependency:**
    MLflow is installed as the `tracking` extra (`uv sync --all-extras`). It is not part of the Docker image, since the API only needs `model.joblib`. Without `MLFLOW_TRACKING_URI`, training works exactly as before.
@@ -233,7 +233,7 @@ Open [http://127.0.0.1:5000](http://127.0.0.1:5000). Runs are under the experime
 ### In CI (`.github/workflows/ci.yml`)
 - **`train`** sets `MLFLOW_TRACKING_URI` and uploads `mlflow.db` and `mlruns/` together with `outputs/` in the candidate artifact `model-candidate-<sha>`.
 - **`evaluate`** runs `churn.register` directly after the quality gate. A model below the threshold is never registered.
-- **`evaluate`** uploads `mlflow-tracking-<sha>`, so anyone in the team can inspect the run and the registered model:
+- **`evaluate`** uploads `mlflow-tracking-<sha>`, even if the quality gate fails, so anyone in the team can inspect the run (and the registered model, if it passed):
 
 ```bash
 gh run download <RUN-ID> --pattern "mlflow-tracking-*" --dir ci-mlflow
@@ -248,9 +248,9 @@ The CI run is named `train-<short-sha>` and links to the exact commit, branch an
 uv run pytest tests/test_tracking.py tests/test_register.py
 ```
 - `test_tracking.py`: no logging when tracking is disabled; a logged run has the expected tags, params and metrics.
-- `test_register.py`: no registration when tracking is disabled; a registered model gets version 1 and the `champion` alias; the CLI fails without `mlflow_run_id`.
+- `test_register.py`: no registration when tracking is disabled; a registered model gets version 1 and the `champion` alias; the CLI fails without `mlflow_run_id` and when tracking is disabled.
 
-The tests use a temporary SQLite database, so they never touch your local `mlflow.db`. They are skipped if MLflow is not installed.
+The tests that use MLflow run against a temporary SQLite database, so they never touch your local `mlflow.db`, and they are skipped if MLflow is not installed.
 
 ### Limitations and next steps
 - **No shared history between CI runs.** Each pipeline run starts with a new SQLite database, so CI always registers version 1. A central MLflow tracking server (set via `MLFLOW_TRACKING_URI` and a GitHub secret) would keep the history. The code does not need to change for that.
