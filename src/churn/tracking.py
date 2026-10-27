@@ -19,9 +19,9 @@ def tracking_enabled() -> bool:
 
 
 def log_training_run(
-        model: Pipeline,
-        metrics: dict,
-        params: dict,
+    model: Pipeline,
+    metrics: dict,
+    params: dict,
 ) -> str | None:
     """Log params, metrics, lineage tags and the model to MLflow.
 
@@ -62,7 +62,7 @@ def log_training_run(
         mlflow.sklearn.log_model(
             model,
             name="model",
-            skops_trusted_types=["numpy.dtype"]
+            skops_trusted_types=["numpy.dtype"],
         )
 
         return run.info.run_id
