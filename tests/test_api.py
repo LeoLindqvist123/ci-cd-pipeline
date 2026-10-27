@@ -1,4 +1,6 @@
 
+from unittest.mock import Mock
+
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
@@ -144,6 +146,11 @@ def test_health_returns_503_when_model_checksum_is_invalid(
     model_path.write_bytes(b"modified model")
 
     monkeypatch.setattr(api, "MODEL_PATH", model_path)
+    monkeypatch.setattr(api, "_model", None)
+
+    # Track whether the API attempts to load the corrupted model.
+    load_mock = Mock()
+    monkeypatch.setattr(api.joblib, "load", load_mock)
 
     response = client.get("/health")
 
@@ -151,3 +158,6 @@ def test_health_returns_503_when_model_checksum_is_invalid(
     assert response.json()["detail"] == (
         "The trained model could not be loaded."
     )
+
+    # Integrity verification must fail before joblib.load() is called.
+    load_mock.assert_not_called()
