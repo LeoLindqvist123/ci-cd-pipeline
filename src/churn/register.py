@@ -30,7 +30,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    register_model(run_id)
+    if register_model(run_id) is None:
+        print("ERROR: The model was not registered. Is MLFLOW_TRACKING_URI set?")
+        return 1
+
     return 0
 
 

@@ -18,7 +18,7 @@ def tracking_uri(tmp_path, monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACKING_URI", f"sqlite:///{db_path}")
 
 
-def test_register_disabled_returns_none(monkeypatch):
+def test_register_model_returns_none_when_tracking_is_disabled(monkeypatch):
     """Without MLFLOW_TRACKING_URI, nothing is registered and None is returned."""
     monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
 
@@ -43,10 +43,22 @@ def test_register_model_sets_champion_as_alias(tracking_uri):
     )
     assert champion.run_id == run_id
 
-def test_run_id_is_missing_in_metrics(tmp_path):
+
+def test_register_cli_fails_without_run_id(tmp_path):
     """The CLI exits with 1 if metrics.json has no mlflow_run_id."""
     metrics_file = tmp_path / "metrics.json"
     metrics_file.write_text(json.dumps({"roc_auc": 0.8}))
+
+    exit_code = register_main([str(metrics_file)])
+
+    assert exit_code == 1
+
+
+def test_register_cli_fails_when_tracking_is_disabled(tmp_path, monkeypatch):
+    """The CLI exits with 1 if it has a run id but tracking is disabled."""
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+    metrics_file = tmp_path / "metrics.json"
+    metrics_file.write_text(json.dumps({"mlflow_run_id": "any-run-id"}))
 
     exit_code = register_main([str(metrics_file)])
 
