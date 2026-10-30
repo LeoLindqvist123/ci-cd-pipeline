@@ -1,0 +1,6 @@
+{
+  "model_version": "seed-42-reference",
+  "data_file": "kundbas.csv",
+  "seed": 42,
+  "roc_auc": 0.789
+}
