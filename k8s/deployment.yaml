@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saldes-churn
+  labels:
+    app: saldes-churn
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: saldes-churn
+  template:
+    metadata:
+      labels:
+        app: saldes-churn
+    spec:
+      containers:
+        - name: saldes-churn
+          image: saldes-churn:127e522b9eff3446de983cf0d6ed0806f7e4b159
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
