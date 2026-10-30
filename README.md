@@ -225,7 +225,7 @@ In `.github/workflows/ci.yml`, the `package` job runs after `evaluate`:
 ### 🚀 Docker Optimization & Resource Management (VG)
 To improve operational reliability, container security, and CI resource utilization, the container deployment pipeline was upgraded:
 - **Multi-Stage Build:** Uses a `builder` stage for dependencies and creates a minimal `runtime` container without build tools (`/bin/uv`) or temporary caches.
-- **Optimized Layer Caching:** Installs locked dependencies using `uv sync --no-install-project` before copying application source code, preventing dependency re-downloads on code changes.
+- **Optimized Production Environment:** Installs only production dependencies (`--frozen --no-dev --no-editable`) and strips `__pycache__` and test directories from `.venv`.
 - **Buildx GHA Layer Caching:** Integrates `type=gha` caching in CI to reuse unchanged layers across pipeline runs.
 - **Security & Health Monitoring:** Runs as a dedicated non-root `appuser` and defines a native container `HEALTHCHECK` against `GET /health`.
 
