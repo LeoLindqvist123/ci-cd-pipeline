@@ -232,7 +232,8 @@ To improve operational reliability, container security, and CI resource utilizat
 #### Before and After Metrics
 | Metric | Baseline (Run #76, Single-Stage) | Optimized (Run #96, Multi-Stage + Cache) | Improvement |
 |---|---|---|---|
-| **Build Duration** | 16s (measured one-off baseline) | **11.3s** (cold build) | ~30% faster |
+| **Uncompressed Image Size** | ~620 MB (measured one-off baseline) | **~378 MB** (runtime-only, no `uv` or caches) | **~39% smaller** (~242 MB saved) |
+| **Build Duration** | 16s (measured one-off baseline) | **11.3s** (cold build) | **~30% faster** |
 | **Image Cleanliness** | Included build tools (`uv`) & caches | Stripped `.venv`, runtime-only | Minimal attack surface |
 | **Security** | Root user, no healthcheck | `appuser` (non-root) + container `HEALTHCHECK` | Least privilege, orchestration-ready |
 
