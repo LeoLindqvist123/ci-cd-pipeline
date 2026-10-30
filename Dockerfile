@@ -9,14 +9,10 @@ ENV UV_COMPILE_BYTECODE=0 \
     UV_LINK_MODE=copy \
     UV_NO_CACHE=1
 
-# Copy dependency files first
 COPY pyproject.toml uv.lock ./
-
-# Install locked dependencies without installing project yet (optimizes layer cache)
-RUN uv sync --frozen --no-dev --no-install-project
-
-# Copy project source code and finalize installation
 COPY src/ /app/src/
+
+# Install only production dependencies once
 RUN uv sync --frozen --no-dev --no-editable \
     && find /app/.venv -type d \( -name "__pycache__" -o -name "tests" -o -name "test" \) -exec rm -rf {} + 2>/dev/null || true \
     && find /app/.venv -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null || true
