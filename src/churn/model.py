@@ -32,8 +32,10 @@ from churn.data import (
     load_data,
     split_features_and_target,
 )
+from churn.tracking import log_training_run
 
 SEED = 42
+TEST_SIZE = 0.25
 DATA_FILE = "kundbas.csv"
 
 
@@ -75,7 +77,7 @@ def train_and_evaluate(
     X_train, X_test, y_train, y_test = train_test_split(
         features,
         target,
-        test_size=0.25,
+        test_size=TEST_SIZE,
         random_state=SEED,
         stratify=target,
     )
@@ -130,6 +132,21 @@ def main(output_dir: Path = Path("outputs")) -> None:
     metrics["data_sha256"] = hashlib.sha256(
         (DATA_DIR / DATA_FILE).read_bytes()
         ).hexdigest()
+
+    # Log to MLflow if MLFLOW_TRACKING_URI is set (no-op otherwise).
+    run_id = log_training_run(
+        model,
+        metrics,
+        params={
+            "seed": SEED,
+            "test_size": TEST_SIZE,
+            "classifier": type(model.named_steps["classifier"]).__name__,
+        },
+    )
+
+    if run_id is not None:
+        metrics["mlflow_run_id"] = run_id
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     model_path = output_dir / "model.joblib"
