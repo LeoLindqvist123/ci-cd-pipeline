@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      k8s: ${{ steps.filter.outputs.k8s }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -38,6 +39,23 @@ jobs:
               - ".dockerignore"
               - ".github/workflows/**"
               - ".github/actions/**"
+            k8s:
+              - "k8s/**"
+
+  validate-k8s:
+    name: Validate Kubernetes Manifests
+    needs: changes
+    if: needs.changes.outputs.k8s == 'true' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Validate manifests with Kubeconform
+        uses: docker://ghcr.io/yannh/kubeconform:v0.8.0
+        with:
+          entrypoint: /kubeconform
+          args: "-strict -summary k8s/"
 
   test:
     name: Lint and Test
@@ -275,7 +293,7 @@ jobs:
 
   ci-complete:
     name: CI Status Check
-    needs: [changes, test, validate, train, evaluate, package]
+    needs: [changes, validate-k8s, test, validate, train, evaluate, package]
     if: always()
     runs-on: ubuntu-latest
     steps:
