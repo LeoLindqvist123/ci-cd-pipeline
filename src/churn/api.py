@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sklearn.pipeline import Pipeline
 
+from churn.artifact_integrity import verify_checksum
 from churn.data import FEATURES, create_features
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +53,7 @@ def get_model() -> Pipeline:
             )
 
         try:
+            verify_checksum(MODEL_PATH)
             _model = joblib.load(MODEL_PATH)
         except Exception as exc:
             raise HTTPException(

@@ -167,6 +167,9 @@ jobs:
           name: model-candidate-${{ github.sha }}
           path: .
 
+      - name: Verify candidate model integrity
+        run: uv run python -m churn.artifact_integrity outputs/model.joblib
+
       - name: Write metrics to Summary
         run: |
           uv run python - <<'EOF'
@@ -228,11 +231,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Install dependencies
+        uses: ./.github/actions/setup-project
+
       - name: Download approved model artifact
         uses: actions/download-artifact@v4
         with:
           name: model-${{ github.sha }}
           path: outputs/
+
+      - name: Verify approved model integrity
+        run: uv run python -m churn.artifact_integrity outputs/model.joblib
 
       - name: Build Docker image
         run: |
@@ -323,6 +332,9 @@ jobs:
         with:
           name: model-${{ github.sha }}
           path: outputs/
+
+      - name: Verify model integrity before scoring
+        run: uv run python -m churn.artifact_integrity outputs/model.joblib
 
       - name: Score customers
         run: uv run python -m churn.score
