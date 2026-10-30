@@ -222,6 +222,20 @@ In `.github/workflows/ci.yml`, the `package` job runs after `evaluate`:
 2. Builds the Docker image and runs `tests/smoke_test.py` against the live container.
 3. On `push` events to `main`, pushes the verified image to `ghcr.io/leolindqvist123/ci-cd-pipeline/churn-api` tagged with both `<commit-sha>` and `latest`.
 
+### 🚀 Docker Optimization & Resource Management (VG)
+To improve operational reliability, container security, and CI resource utilization, the container deployment pipeline was upgraded:
+- **Multi-Stage Build:** Uses a `builder` stage for dependencies and creates a minimal `runtime` container without build tools (`/bin/uv`) or temporary caches.
+- **Optimized Layer Caching:** Installs locked dependencies using `uv sync --no-install-project` before copying application source code, preventing dependency re-downloads on code changes.
+- **Buildx GHA Layer Caching:** Integrates `type=gha` caching in CI to reuse unchanged layers across pipeline runs.
+- **Security & Health Monitoring:** Runs as a dedicated non-root `appuser` and defines a native container `HEALTHCHECK` against `GET /health`.
+
+#### Before and After Metrics
+| Metric | Baseline (Run #76, Single-Stage) | Optimized (Run #96, Multi-Stage + Cache) | Improvement |
+|---|---|---|---|
+| **Build Duration** | 16s (measured one-off baseline) | **11.3s** (cold build) | ~30% faster |
+| **Image Cleanliness** | Included build tools (`uv`) & caches | Stripped `.venv`, runtime-only | Minimal attack surface |
+| **Security** | Root user, no healthcheck | `appuser` (non-root) + container `HEALTHCHECK` | Least privilege, orchestration-ready |
+
 ## 📁 Project Structure
 
 ```text
