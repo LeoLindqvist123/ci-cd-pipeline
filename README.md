@@ -241,7 +241,11 @@ cd ci-mlflow   # and into the mlflow-tracking-* folder if one was created
 uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-The CI run is named `train-<short-sha>` and links to the exact commit, branch and data hash.
+The CI run is named `train-<short-sha>` and is linked to the exact commit and data hash. For pull requests, the SHA is the merge commit GitHub creates when it tests the branch merged with `main`.
+
+![MLflow run logged by CI, with metrics, params, lineage tags and the registered model](docs/mlflow_ci_run.png)
+
+![churn-model in the MLflow Model Registry, with version 1 as champion](docs/mlflow_registry_champion.png)
 
 ### Tests
 ```bash
@@ -299,7 +303,9 @@ ci-cd-pipeline/
 │   └── schema.py
 ├── docs/
 │   ├── fastapi_prediction_prompt.png
-│   └── fastapi_prediction_response.png
+│   ├── fastapi_prediction_response.png
+│   ├── mlflow_ci_run.png
+│   └── mlflow_registry_champion.png
 ├── outputs/
 │   ├── model.joblib
 │   ├── metrics.json
