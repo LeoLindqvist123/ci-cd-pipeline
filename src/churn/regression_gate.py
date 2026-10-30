@@ -74,7 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     if actual_drop > MAX_ROC_AUC_DROP + 1e-12:
         print(
             f"ERROR: Model regression of {actual_drop:.3f} "
-            f"exceeds the allowed drop of {MAX_ROC_AUC_DROP:.3f}."
+            f"exceeds the allowed drop of {MAX_ROC_AUC_DROP:.3f}.",
+            file=sys.stderr,
         )
         return 1
 

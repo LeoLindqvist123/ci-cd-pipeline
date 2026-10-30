@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from churn.regression_gate import main
 
 
@@ -43,7 +45,7 @@ def test_candidate_below_allowed_boundary_fails(tmp_path, capsys):
     result = main([str(metrics), str(baseline)])
 
     assert result == 1
-    assert "exceeds the allowed drop" in capsys.readouterr().out
+    assert "exceeds the allowed drop" in capsys.readouterr().err
 
 
 def test_missing_roc_auc_fails(tmp_path, capsys):
@@ -69,3 +71,22 @@ def test_missing_metrics_file_fails(tmp_path, capsys):
 
     assert result == 1
     assert "Metrics file not found" in capsys.readouterr().err
+
+@pytest.mark.parametrize(
+    "invalid_score",
+    [True, 1.5, "0.8"],
+)
+def test_invalid_roc_auc_values_fail(tmp_path, capsys, invalid_score):
+    metrics = tmp_path / "metrics.json"
+    baseline = tmp_path / "baseline.json"
+
+    write_json(metrics, {"roc_auc": invalid_score})
+    write_json(baseline, {"roc_auc": 0.789})
+
+    result = main([str(metrics), str(baseline)])
+
+    captured = capsys.readouterr()
+
+    assert result == 1
+    assert "Invalid or missing ROC AUC" in captured.err
+    assert "ERROR:" in captured.err
