@@ -9,9 +9,14 @@ ENV UV_COMPILE_BYTECODE=0 \
     UV_LINK_MODE=copy \
     UV_NO_CACHE=1
 
+# Copy dependency files first
 COPY pyproject.toml uv.lock ./
-COPY src/ /app/src/
 
+# Install locked dependencies without installing project yet (optimizes layer cache)
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Copy project source code and finalize installation
+COPY src/ /app/src/
 RUN uv sync --frozen --no-dev --no-editable \
     && find /app/.venv -type d \( -name "__pycache__" -o -name "tests" -o -name "test" \) -exec rm -rf {} + 2>/dev/null || true \
     && find /app/.venv -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null || true
@@ -31,11 +36,6 @@ RUN useradd --create-home --shell /bin/bash appuser
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --from=builder --chown=appuser:appuser /app/src /app/src
 COPY --chown=appuser:appuser outputs/ /app/outputs/
-
-# Handle backwards-compatibility if artifact was named modell.joblib instead of model.joblib
-RUN if [ -f /app/outputs/modell.joblib ] && [ ! -f /app/outputs/model.joblib ]; then \
-        cp /app/outputs/modell.joblib /app/outputs/model.joblib; \
-    fi && chown -R appuser:appuser /app/outputs
 
 USER appuser
 
