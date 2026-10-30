@@ -240,11 +240,11 @@ jobs:
 
           {
             echo "## 🐳 Docker Optimization Metrics (VG Evaluation)"
-            echo "| Metric | Baseline (Single-stage, no cache) | Optimized (Multi-stage + Buildx GHA) |"
+            echo "| Metric | Baseline (Run #76, single-stage, no cache) | Optimized (Multi-stage + Buildx GHA) |"
             echo "|---|---|---|"
-            echo "| Build Duration | 16s | **${BUILD_SECONDS}s** |"
-            echo "| Uncompressed Image Size | ~620 MB (incl. uv binary & cache) | **${IMAGE_SIZE_MB} MB** |"
-            echo "| Security / Driftsäkerhet | Root user, no healthcheck | **Non-root user (appuser) + Docker Healthcheck** |"
+            echo "| Build Duration | 16s (measured one-off baseline) | **${BUILD_SECONDS}s** |"
+            echo "| Uncompressed Image Size | ~620 MB (measured one-off baseline) | **${IMAGE_SIZE_MB} MB** |"
+            echo "| Security / Reliability | Root user, no healthcheck | **Non-root user (appuser) + Docker Healthcheck** |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run container for smoke test
