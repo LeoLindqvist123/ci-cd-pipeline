@@ -299,6 +299,15 @@ To improve operational reliability, container security, and CI resource utilizat
 | **Image Cleanliness** | Included build tools (`uv`) & caches | Stripped `.venv`, runtime-only | Minimal attack surface |
 | **Security** | Root user, no healthcheck | `appuser` (non-root) + container `HEALTHCHECK` | Least privilege, orchestration-ready |
 
+## 🛡️ Statistical Data Drift & Safe Data Delivery (VG)
+
+To protect the model from retraining on skewed or incomplete data deliveries that still pass static Pandera schema rules, `src/churn/drift.py` compares incoming deliveries against `data/kundbas.csv`:
+- **Volume Sanity Check:** Fails if row count drops below 50% of the reference dataset.
+- **Numeric Feature Drift (`MAX_MEAN_SHIFT_STD = 0.50`):** Fails if any raw numeric feature mean shifts by more than 0.50 standard deviations.
+- **Unseen Categories:** Fails if new categories appear in `region` or `abonnemang`.
+- **Target Rate Drift (`MAX_TARGET_DIFF = 0.15`):** Fails if the churn rate (`avslutat`) shifts by more than 15 percentage points.
+- **CI & Local Usage:** Runs in the `validate` job before `train` on `data/kundbas.csv` (expected: pass) and `data/kundbas_drift_leverans.csv` (passes Pandera schema, expected to fail drift check via `uv run python -m churn.drift data/kundbas_drift_leverans.csv data/kundbas.csv`) and is tested via `uv run python -m pytest tests/test_data.py`.
+
 ## 📁 Project Structure
 
 ```text
@@ -313,7 +322,8 @@ ci-cd-pipeline/
 │   └── seed_variance.py
 ├── data/
 │   ├── kundbas.csv
-│   └── kundbas_ny_leverans.csv
+│   ├── kundbas_ny_leverans.csv
+│   └── kundbas_drift_leverans.csv
 ├── validation/
 │   └── schema.py
 ├── docs/

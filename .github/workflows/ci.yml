@@ -74,8 +74,13 @@ jobs:
         include:
           - datafile: data/kundbas.csv
             expect: pass
+            expect_drift: pass
           - datafile: data/kundbas_ny_leverans.csv
             expect: fail
+            expect_drift: skip
+          - datafile: data/kundbas_drift_leverans.csv
+            expect: pass
+            expect_drift: fail
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -123,6 +128,14 @@ jobs:
 
           log.info("Result matched expectation: %s", expect)
           EOF
+
+      - name: Check statistical data drift against reference baseline
+        if: matrix.expect == 'pass'
+        env:
+          DATAFILE: ${{ matrix.datafile }}
+          EXPECT_DRIFT: ${{ matrix.expect_drift }}
+        run: |
+          uv run python -m churn.drift "$DATAFILE" data/kundbas.csv
 
   train:
     name: Train Model
