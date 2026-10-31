@@ -124,6 +124,13 @@ jobs:
           log.info("Result matched expectation: %s", expect)
           EOF
 
+      - name: Check statistical data drift against reference baseline
+        if: matrix.expect == 'pass'
+        env:
+          DATAFILE: ${{ matrix.datafile }}
+        run: |
+          uv run python -m churn.drift "$DATAFILE" data/kundbas.csv
+
   train:
     name: Train Model
     needs: [test, validate]
