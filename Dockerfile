@@ -14,8 +14,8 @@ COPY pyproject.toml uv.lock ./
 
 # Install only production third-party dependencies once
 RUN uv sync --frozen --no-dev --no-install-project \
-    && find /app/.venv -type d \( -name "__pycache__" -o -name "tests" -o -name "test" \) -exec rm -rf {} + 2>/dev/null || true \
-    && find /app/.venv -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null || true
+    && find /app/.venv -type d \( -name "__pycache__" -o -name "tests" -o -name "test" \) -prune -exec rm -rf {} + \
+    && find /app/.venv -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
 
 # --- Stage 2: Minimal Production Runtime ---
 FROM python:3.11-slim AS runtime
