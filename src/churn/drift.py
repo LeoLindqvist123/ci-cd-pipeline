@@ -1,7 +1,7 @@
 """Statistical data drift and delivery gate comparing incoming data against reference data.
 
 Usage:
-    uv run python -m churn.drift <incoming_csv> [reference_csv]
+    uv run python -m churn.drift [incoming_csv] [reference_csv]
 """
 
 import sys
@@ -9,20 +9,19 @@ from pathlib import Path
 
 import pandas as pd
 
-NUMERIC_COLS = [
-    "alder",
-    "manader_som_kund",
-    "manadskostnad",
-    "data_gb_per_manad",
-    "supportarenden_12m",
-]
-CATEGORICAL_COLS = ["region", "abonnemang"]
-TARGET_COL = "churn"
+from churn.data import CATEGORICAL_FEATURES, DATA_DIR, NUMERIC_FEATURES, TARGET
+
+# Exclude derived feature 'kostnad_per_gb' which is computed after raw CSV loading
+RAW_NUMERIC_COLS = [col for col in NUMERIC_FEATURES if col != "kostnad_per_gb"]
+DEFAULT_REFERENCE = DATA_DIR / "kundbas.csv"
+
 MAX_MEAN_SHIFT_STD = 0.50  # Maximum allowed shift in mean (relative to reference std)
 MAX_TARGET_DIFF = 0.15  # Maximum allowed absolute shift in churn rate (15 percentage points)
 
 
-def check_delivery_drift(incoming_path: Path, reference_path: Path) -> list[str]:
+def check_delivery_drift(
+    incoming_path: Path, reference_path: Path = DEFAULT_REFERENCE
+) -> list[str]:
     """Compare an incoming dataset against reference data and return any drift errors."""
     if not incoming_path.is_file():
         return [f"Incoming file not found: {incoming_path}"]
@@ -41,7 +40,7 @@ def check_delivery_drift(incoming_path: Path, reference_path: Path) -> list[str]
         )
 
     # 2. Numeric distribution drift check (Z-score shift)
-    for col in NUMERIC_COLS:
+    for col in RAW_NUMERIC_COLS:
         if col not in inc_df.columns or col not in ref_df.columns:
             errors.append(f"Missing column: {col}")
             continue
@@ -59,7 +58,7 @@ def check_delivery_drift(incoming_path: Path, reference_path: Path) -> list[str]
                 )
 
     # 3. Categorical distribution check (flags unseen categories)
-    for col in CATEGORICAL_COLS:
+    for col in CATEGORICAL_FEATURES:
         if col not in inc_df.columns or col not in ref_df.columns:
             errors.append(f"Missing column: {col}")
             continue
@@ -71,20 +70,20 @@ def check_delivery_drift(incoming_path: Path, reference_path: Path) -> list[str]
             errors.append(f"Unseen categories in '{col}': {sorted(unseen)}")
 
     # 4. Target rate shift check
-    if TARGET_COL in inc_df.columns and TARGET_COL in ref_df.columns:
-        ref_rate = ref_df[TARGET_COL].dropna().mean()
-        inc_rate = inc_df[TARGET_COL].dropna().mean()
+    if TARGET in inc_df.columns and TARGET in ref_df.columns:
+        ref_rate = ref_df[TARGET].dropna().mean()
+        inc_rate = inc_df[TARGET].dropna().mean()
         if abs(inc_rate - ref_rate) > MAX_TARGET_DIFF:
             shift_msg = f"rate shifted from {ref_rate:.2%} to {inc_rate:.2%}"
-            errors.append(f"Target drift in '{TARGET_COL}': {shift_msg}")
+            errors.append(f"Target drift in '{TARGET}': {shift_msg}")
 
     return errors
 
 
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
-    incoming = Path(args[0]) if len(args) >= 1 else Path("data/kundbas.csv")
-    reference = Path(args[1]) if len(args) >= 2 else Path("data/kundbas.csv")
+    incoming = Path(args[0]) if len(args) >= 1 else DEFAULT_REFERENCE
+    reference = Path(args[1]) if len(args) >= 2 else DEFAULT_REFERENCE
 
     print(f"Running data drift check: '{incoming}' against reference '{reference}'...")
     errors = check_delivery_drift(incoming, reference)

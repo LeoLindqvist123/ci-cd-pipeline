@@ -70,6 +70,27 @@ In CI, the `validate` job checks both data files in parallel:
 
 The validation output is shown in the job summary on GitHub. The model is only trained if both checks are green.
 
+## 🛡️ Statistical Data Drift & Safe Data Delivery (VG)
+
+While Pandera (`validation/schema.py`) enforces static schema rules (data types, non-null constraints, and valid value ranges), it does not catch **statistical data drift** or sudden volume drops in a schema-compliant delivery. To protect the model from retraining on skewed or incomplete data deliveries, `src/churn/drift.py` performs an automated reference comparison against `data/kundbas.csv`.
+
+### Drift Checks & Thresholds
+1. **Volume Sanity Check (`>= 50%` of reference rows):** Fails if an incoming delivery drops below half the row count of the reference dataset (`data/kundbas.csv`).
+2. **Numeric Feature Drift (`MAX_MEAN_SHIFT_STD = 0.50`):** Computes the normalized mean shift ($Z$-score) for each raw numeric feature (`alder`, `manader_som_kund`, `manadskostnad`, `data_gb_per_manad`, `supportarenden_12m`) relative to the reference standard deviation and fails if any feature shifts by more than `0.50` standard deviations.
+3. **Unseen Categorical Values:** Compares unique categories in `region` and `abonnemang` against the reference dataset and fails if previously unseen categories appear.
+4. **Target Rate Drift (`MAX_TARGET_DIFF = 0.15`):** Fails if the churn rate (`avslutat`) shifts by more than 15 percentage points compared to the reference baseline.
+
+### Pipeline Behavior & Usage
+- **In CI (`.github/workflows/ci.yml`):** The `validate` job runs `python -m churn.drift` on datasets that pass schema validation, writes the drift report to the GitHub Actions Job Summary, and exits with code `1` if drift is detected — blocking the `train`, `evaluate`, and `package` jobs before a degraded model can be trained.
+- **Run locally:**
+  ```bash
+  uv run python -m churn.drift data/kundbas.csv data/kundbas.csv
+  ```
+- **Run automated unit tests:**
+  ```bash
+  uv run python -m pytest tests/test_data.py
+  ```
+
 ## 📊 Classification Threshold Analysis
 
 The churn model predicts the probability that a customer will leave the company. We evaluate different classification thresholds to understand how they affect the model's predictions.
