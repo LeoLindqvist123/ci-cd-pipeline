@@ -303,6 +303,30 @@ In `.github/workflows/ci.yml`, the `package` job runs after `evaluate`:
 2. Builds the Docker image and runs `tests/smoke_test.py` against the live container.
 3. On `push` events to `main`, pushes the verified image to `ghcr.io/leolindqvist123/ci-cd-pipeline/churn-api` tagged with both `<commit-sha>` and `latest`.
 
+### 🚀 Docker Optimization & Resource Management (VG)
+To improve operational reliability, container security, and CI resource utilization, the container deployment pipeline was upgraded:
+- **Multi-Stage Build:** Uses a `builder` stage for dependencies and creates a minimal `runtime` container without build tools (`/bin/uv`) or temporary caches.
+- **Optimized Production Environment:** Installs only production dependencies (`--frozen --no-dev --no-editable`) and strips `__pycache__` and test directories from `.venv`.
+- **Buildx GHA Layer Caching:** Integrates `type=gha` caching in CI to reuse unchanged layers across pipeline runs.
+- **Security & Health Monitoring:** Runs as a dedicated non-root `appuser` and defines a native container `HEALTHCHECK` against `GET /health`.
+
+#### Before and After Metrics
+| Metric | Baseline (Run #76, Single-Stage) | Optimized (Run #96, Multi-Stage + Cache) | Improvement |
+|---|---|---|---|
+| **Uncompressed Image Size** | ~620 MB (measured one-off baseline) | **~378 MB** (runtime-only, no `uv` or caches) | **~39% smaller** (~242 MB saved) |
+| **Build Duration** | 16s (measured one-off baseline) | **11.3s** (cold build) | **~30% faster** |
+| **Image Cleanliness** | Included build tools (`uv`) & caches | Stripped `.venv`, runtime-only | Minimal attack surface |
+| **Security** | Root user, no healthcheck | `appuser` (non-root) + container `HEALTHCHECK` | Least privilege, orchestration-ready |
+
+## 🛡️ Statistical Data Drift & Safe Data Delivery (VG)
+
+To protect the model from retraining on skewed or incomplete data deliveries that still pass static Pandera schema rules, `src/churn/drift.py` compares incoming deliveries against `data/kundbas.csv`:
+- **Volume Sanity Check:** Fails if row count drops below 50% of the reference dataset.
+- **Numeric Feature Drift (`MAX_MEAN_SHIFT_STD = 0.50`):** Fails if any raw numeric feature mean shifts by more than 0.50 standard deviations.
+- **Unseen Categories:** Fails if new categories appear in `region` or `abonnemang`.
+- **Target Rate Drift (`MAX_TARGET_DIFF = 0.15`):** Fails if the churn rate (`avslutat`) shifts by more than 15 percentage points.
+- **CI & Local Usage:** Runs in the `validate` job before `train` on `data/kundbas.csv` (expected: pass) and `data/kundbas_drift_leverans.csv` (passes Pandera schema, expected to fail drift check via `uv run python -m churn.drift data/kundbas_drift_leverans.csv data/kundbas.csv`) and is tested via `uv run python -m pytest tests/test_data.py`.
+
 ## 📁 Project Structure
 
 ```text
@@ -317,7 +341,8 @@ ci-cd-pipeline/
 │   └── seed_variance.py
 ├── data/
 │   ├── kundbas.csv
-│   └── kundbas_ny_leverans.csv
+│   ├── kundbas_ny_leverans.csv
+│   └── kundbas_drift_leverans.csv
 ├── validation/
 │   └── schema.py
 ├── docs/
