@@ -9,14 +9,13 @@ ENV UV_COMPILE_BYTECODE=0 \
     UV_LINK_MODE=copy \
     UV_NO_CACHE=1
 
+# Copy only lockfiles so code changes in src/ never invalidate the dependency cache
 COPY pyproject.toml uv.lock ./
-COPY src/ /app/src/
 
-# Install only production dependencies once
-RUN uv sync --frozen --no-dev --no-editable \
-    && find /app/.venv -type d \( -name "__pycache__" -o -name "tests" -o -name "test" \) \
-         -prune -exec rm -rf {} + \
-    && find /app/.venv -type f -name "*.pyc" -delete
+# Install only production third-party dependencies once
+RUN uv sync --frozen --no-dev --no-install-project \
+    && find /app/.venv -type d \( -name "__pycache__" -o -name "tests" -o -name "test" \) -exec rm -rf {} + 2>/dev/null || true \
+    && find /app/.venv -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete 2>/dev/null || true
 
 # --- Stage 2: Minimal Production Runtime ---
 FROM python:3.11-slim AS runtime
@@ -26,12 +25,13 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src" \
     CHURN_MODEL_PATH=/app/outputs/model.joblib
 
 RUN useradd --create-home --shell /bin/bash appuser
 
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
-COPY --from=builder --chown=appuser:appuser /app/src /app/src
+COPY --chown=appuser:appuser src/ /app/src/
 COPY --chown=appuser:appuser outputs/ /app/outputs/
 
 USER appuser
