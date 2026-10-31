@@ -1,5 +1,11 @@
-# Det träningen skriver
+# Training outputs
 outputs/
+*.joblib
+
+# MLflow local tracking data
+mlflow.db
+mlruns/
+mlartifacts/
 
 # Python
 __pycache__/
@@ -15,13 +21,12 @@ dist/
 coverage.xml
 htmlcov/
 
-# Hemligheter
+# Secrets
 .env
 .env.*
 
-# Editorer och OS
+# Editors and OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-*.joblib
