@@ -136,13 +136,18 @@ jobs:
         uses: ./.github/actions/setup-project
 
       - name: Train churn model
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///mlflow.db
         run: uv run python -m churn.model
 
       - name: Upload candidate model artifact
         uses: actions/upload-artifact@v4
         with:
           name: model-candidate-${{ github.sha }}
-          path: outputs/
+          path: |
+            outputs/
+            mlflow.db
+            mlruns/
           retention-days: 1
 
   evaluate:
@@ -160,7 +165,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: model-candidate-${{ github.sha }}
-          path: outputs/
+          path: .
 
       - name: Write metrics to Summary
         run: |
@@ -191,12 +196,26 @@ jobs:
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
 
+      - name: Register approved model in MLflow
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+        run: uv run python -m churn.register
+
       - name: Version approved model artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: model-${{ github.sha }}
           path: outputs/
+
+      - name: Upload MLflow tracking data
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-tracking-${{ github.sha }}
+          path: |
+            mlflow.db
+            mlruns/
 
   package:
     name: Package and Publish Docker Image

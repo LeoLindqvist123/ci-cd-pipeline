@@ -12,7 +12,7 @@ This project uses `uv` for lightning-fast dependency management. To set up your 
    git clone https://github.com/LeoLindqvist123/ci-cd-pipeline.git
    cd ci-cd-pipeline
    ```
-2. Sync the environment and install all dependencies (including dev and data tools):
+2. Sync the environment and install all dependencies (including dev, data and MLflow tracking tools):
    ```bash
    uv sync --all-extras
    ```
@@ -190,6 +190,7 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
    - The `train` job uploads a temporary candidate artifact (`model-candidate-<sha>`, `retention-days: 1`).
    - The `evaluate` job downloads the candidate, writes the metrics and lineage table to the GitHub Actions **Job Summary**, and runs `uv run python -m churn.evaluate`.
    - **Only if the model passes the quality threshold** (`ROC AUC >= 0.74`) does CI publish the official versioned artifact `model-<sha>`.
+   - The approved model is also registered in the MLflow Model Registry, see [Experiment Tracking & Model Registry](#-experiment-tracking--model-registry-mlflow).
 
 3. **Automated Lineage Testing (`tests/test_model.py`):**
    The test `test_model_versioning_metadata` verifies that `model.joblib` and `metrics.json` are created with valid `commit`, `data_file`, `data_sha256`, and evaluation metric fields:
@@ -197,6 +198,67 @@ Every model that passes the CI quality gate is versioned as a traceable artifact
    ```bash
    uv run pytest tests/test_model.py
    ```
+
+## 🧪 Experiment Tracking & Model Registry (MLflow)
+
+MLflow is an optional add-on to the versioning above. `metrics.json` and the quality gate in `churn.evaluate` are still the source of truth. MLflow makes every training run searchable and keeps a registry of approved models.
+
+### How it works
+1. **Tracking (`src/churn/tracking.py`):**
+   When `MLFLOW_TRACKING_URI` is set, `uv run python -m churn.model` logs each training run to the experiment `churn` with:
+   - **Params:** `seed`, `test_size`, `classifier`
+   - **Metrics:** all numeric values from `metrics.json` (`roc_auc`, `accuracy`, threshold metrics)
+   - **Tags (lineage):** `commit`, `data_file`, `data_sha256`
+   - **Model:** the trained sklearn pipeline
+
+   The MLflow run id is saved in `outputs/metrics.json` as `mlflow_run_id`, so later steps know exactly which run to register.
+
+2. **Registry (`src/churn/register.py`):**
+   `uv run python -m churn.register` reads `mlflow_run_id` from `metrics.json`, registers the model as a new version of `churn-model` and sets the alias `champion`. It should only run after the quality gate has passed. It exits with code 1 if `mlflow_run_id` is missing or if the model could not be registered (for example when `MLFLOW_TRACKING_URI` is not set).
+
+3. **Optional dependency:**
+   MLflow is installed as the `tracking` extra (`uv sync --all-extras`). It is not part of the Docker image, since the API only needs `model.joblib`. Without `MLFLOW_TRACKING_URI`, training works exactly as before.
+
+### Run locally
+Run from the project root, since `sqlite:///mlflow.db` is a path relative to the current folder:
+
+```bash
+MLFLOW_TRACKING_URI=sqlite:///mlflow.db uv run python -m churn.model
+MLFLOW_TRACKING_URI=sqlite:///mlflow.db uv run python -m churn.register
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+Open [http://127.0.0.1:5000](http://127.0.0.1:5000). Runs are under the experiment **churn**, and registered versions under **Registered Models → churn-model**. Local MLflow data (`mlflow.db`, `mlruns/`) is ignored by Git and Docker.
+
+### In CI (`.github/workflows/ci.yml`)
+- **`train`** sets `MLFLOW_TRACKING_URI` and uploads `mlflow.db` and `mlruns/` together with `outputs/` in the candidate artifact `model-candidate-<sha>`.
+- **`evaluate`** runs `churn.register` directly after the quality gate. A model below the threshold is never registered.
+- **`evaluate`** uploads `mlflow-tracking-<sha>`, even if the quality gate fails, so anyone in the team can inspect the run (and the registered model, if it passed):
+
+```bash
+gh run download <RUN-ID> --pattern "mlflow-tracking-*" --dir ci-mlflow
+cd ci-mlflow   # and into the mlflow-tracking-* folder if one was created
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+The CI run is named `train-<short-sha>` and is linked to the exact commit and data hash. For pull requests, the SHA is the merge commit GitHub creates when it tests the branch merged with `main`.
+
+![MLflow run logged by CI, with metrics, params, lineage tags and the registered model](docs/mlflow_ci_run.png)
+
+![churn-model in the MLflow Model Registry, with version 1 as champion](docs/mlflow_registry_champion.png)
+
+### Tests
+```bash
+uv run pytest tests/test_tracking.py tests/test_register.py
+```
+- `test_tracking.py`: no logging when tracking is disabled; a logged run has the expected tags, params and metrics.
+- `test_register.py`: no registration when tracking is disabled; a registered model gets version 1 and the `champion` alias; the CLI fails without `mlflow_run_id` and when tracking is disabled.
+
+The tests that use MLflow run against a temporary SQLite database, so they never touch your local `mlflow.db`, and they are skipped if MLflow is not installed.
+
+### Limitations and next steps
+- **No shared history between CI runs.** Each pipeline run starts with a new SQLite database, so CI always registers version 1. A central MLflow tracking server (set via `MLFLOW_TRACKING_URI` and a GitHub secret) would keep the history. The code does not need to change for that.
+- **Every approved model becomes `champion`.** A natural next step is champion/challenger: a new model only replaces the champion if it is not worse, otherwise it gets the alias `challenger`.
 
 ## 🐳 Docker Packaging, Smoke Test & GHCR
 
@@ -256,7 +318,9 @@ ci-cd-pipeline/
 │   └── schema.py
 ├── docs/
 │   ├── fastapi_prediction_prompt.png
-│   └── fastapi_prediction_response.png
+│   ├── fastapi_prediction_response.png
+│   ├── mlflow_ci_run.png
+│   └── mlflow_registry_champion.png
 ├── outputs/
 │   ├── model.joblib
 │   ├── metrics.json
@@ -268,13 +332,17 @@ ci-cd-pipeline/
 │         ├── data.py
 │         ├── evaluate.py
 │         ├── model.py
-│         └── score.py
+│         ├── register.py
+│         ├── score.py
+│         └── tracking.py
 ├── tests/
 │   ├── smoke_test.py
 │   ├── test_api.py
 │   ├── test_data.py
 │   ├── test_features.py
-│   └── test_model.py
+│   ├── test_model.py
+│   ├── test_register.py
+│   └── test_tracking.py
 ├── create_issues.py
 ├── issues_followup.json
 ├── issues.json
@@ -307,6 +375,7 @@ ci-cd-pipeline/
 - [ ] Refine feature engineering pipeline
 - [X] Version approved model artifacts with commit and data metadata
 - [X] Verify that failing model evaluation prevents publication
+- [x] Track experiments and register approved models with MLflow (optional step)
 
 ### 4. Model Serving & FastAPI
 
