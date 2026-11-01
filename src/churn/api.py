@@ -1,6 +1,7 @@
 
 """FastAPI service for the customer churn prediction model."""
 
+import logging
 import os
 from pathlib import Path
 
@@ -12,6 +13,8 @@ from sklearn.pipeline import Pipeline
 
 from churn.artifact_integrity import verify_checksum
 from churn.data import FEATURES, create_features
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "outputs" / "model.joblib"
@@ -56,6 +59,7 @@ def get_model() -> Pipeline:
             verify_checksum(MODEL_PATH)
             _model = joblib.load(MODEL_PATH)
         except Exception as exc:
+            logger.exception("Could not load model from %s", MODEL_PATH)
             raise HTTPException(
                 status_code=503,
                 detail="The trained model could not be loaded.",

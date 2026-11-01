@@ -135,7 +135,7 @@ def test_predict_maps_api_fields_to_training_columns(monkeypatch):
     assert mapped["abonnemang"] == "Standard"
 
 def test_health_returns_503_when_model_checksum_is_invalid(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, caplog
 ):
     model_path = tmp_path / "model.joblib"
     model_path.write_bytes(b"original model")
@@ -161,3 +161,4 @@ def test_health_returns_503_when_model_checksum_is_invalid(
 
     # Integrity verification must fail before joblib.load() is called.
     load_mock.assert_not_called()
+    assert "Could not load model from" in caplog.text
