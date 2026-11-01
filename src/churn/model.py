@@ -23,6 +23,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from churn.artifact_integrity import write_checksum
 from churn.data import (
     CATEGORICAL_FEATURES,
     DATA_DIR,
@@ -147,7 +148,11 @@ def main(output_dir: Path = Path("outputs")) -> None:
         metrics["mlflow_run_id"] = run_id
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, output_dir / "model.joblib")
+
+    model_path = output_dir / "model.joblib"
+    joblib.dump(model, model_path)
+    write_checksum(model_path)
+
     (output_dir / "metrics.json").write_text(
         json.dumps(metrics, indent=2)
     )
