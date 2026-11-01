@@ -22,7 +22,7 @@ This project uses `uv` for lightning-fast dependency management. To set up your 
 #Example run command
 uv run pytest
 
-uv run python  -m churn.model
+uv run python -m churn.model
 ```
 
 
@@ -67,8 +67,12 @@ In CI, the `validate` job checks both data files in parallel:
 
 - `kundbas.csv` must **pass**.
 - `kundbas_ny_leverans.csv` must **fail**. It is a known-bad delivery that proves the schema catches errors.
+- `kundbas_drift_leverans.csv` must pass schema validation but fail the drift check.
 
-The validation job verifies that valid data passes schema validation and known-invalid data is rejected. These expected outcomes are checked in parallel before the training job runs. A separate test verifies that an actual validation-job failure blocks downstream training.
+The validation job verifies that valid data passes schema validation and known-invalid data is rejected. These checks run before model training.
+The `train` job depends on both `test` and `validate` through
+`needs: [test, validate]`. This ensures that model training only
+starts when both jobs have succeeded.
 
 ## 📊 Classification Threshold Analysis
 
