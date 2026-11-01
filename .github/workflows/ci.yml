@@ -30,6 +30,7 @@ jobs:
           filters: |
             code:
               - "src/**"
+              - "config/**"
               - "data/**"
               - "tests/**"
               - "validation/**"
@@ -211,6 +212,9 @@ jobs:
 
       - name: Evaluate model against threshold
         run: uv run python -m churn.evaluate
+
+      - name: Compare candidate against approved baseline
+        run: uv run python -m churn.regression_gate
 
       - name: Register approved model in MLflow
         env:

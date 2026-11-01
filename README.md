@@ -24,8 +24,6 @@ uv run pytest
 
 uv run python -m churn.model
 ```
-
-
 ## FastAPI
 
 The API predicts customer churn using the trained model.
@@ -46,7 +44,6 @@ Run API tests:
 ```bash
 uv run pytest tests/test_api.py
 ```
-
 
 ## ✅ Data Validation
 
@@ -111,6 +108,7 @@ Comparing precision, recall, and F1-score helps the team understand these trade-
 The results from different thresholds should be reviewed before selecting a final threshold. For a more rigorous evaluation, select the threshold using validation data and reserve the test data for the final evaluation.
 
 **Note:** Classification thresholds determine how predicted probabilities are converted into churn predictions. They are different from the minimum ROC AUC threshold used by CI to decide whether model evaluation passes or fails.
+
 ## 📊 Model Threshold Analysis
 
 The pipeline needs a minimum ROC AUC for the model to pass CI. To choose that
@@ -178,6 +176,34 @@ Motivation:
 - **Standard choice.** Mean − 2 SD is a common rule of thumb, while mean − 3 SD (0.724) would let too large a drop through.
 
 The threshold should be revisited if the data, features or model change significantly. In that case, rerun `analysis/seed_variance.py`.
+
+### Model Regression Gate
+
+In addition to the absolute ROC AUC quality threshold, the pipeline
+compares each candidate model against an approved baseline to detect
+unacceptable performance regressions.
+
+The comparison is implemented in `src/churn/regression_gate.py`.
+The candidate metrics are read from `outputs/metrics.json`, while
+the reference metrics are stored in `config/model_baseline.json`.
+
+The current baseline is the seed-42 reference model with a ROC AUC
+of 0.789. The maximum permitted decrease is 0.020, giving a minimum
+acceptable ROC AUC of 0.769 for the regression check.
+
+The regression tolerance is a project-specific policy informed by
+the seed-variance analysis. It is not a universal threshold for ML
+models and should be reviewed if the baseline or data changes.
+
+The pipeline applies the existing absolute quality threshold first,
+then runs the regression gate. The model is versioned and passed to
+downstream packaging only if both checks succeed.
+
+Automated tests cover candidates that pass, candidates that exceed
+the permitted regression, and missing or invalid metrics.
+
+The baseline should only be updated deliberately after a candidate
+model has been evaluated and approved.
 
 ## 📦 Model Versioning & Lineage
 
@@ -343,6 +369,8 @@ ci-cd-pipeline/
 │       └── ci.yml
 ├── analysis/
 │   └── seed_variance.py
+├── config/
+│   └── model_baseline.json
 ├── data/
 │   ├── kundbas.csv
 │   ├── kundbas_ny_leverans.csv
@@ -365,8 +393,10 @@ ci-cd-pipeline/
 │         ├── api.py
 │         ├── artifact_integrity.py
 │         ├── data.py
+│         ├── drift.py
 │         ├── evaluate.py
 │         ├── model.py
+│         ├── regression_gate.py
 │         ├── register.py
 │         ├── score.py
 │         └── tracking.py
@@ -376,6 +406,7 @@ ci-cd-pipeline/
 │   ├── test_api.py
 │   ├── test_data.py
 │   ├── test_features.py
+│   ├── test_regression_gate.py
 │   ├── test_model.py
 │   ├── test_register.py
 │   └── test_tracking.py
