@@ -66,6 +66,9 @@ def test_model_versioning_metadata(tmp_path, monkeypatch):
     assert model_file.exists(), "Model artifact file was not created"
     assert metrics_file.exists(), "Metadata and metrics file was not created"
 
+    checksum_file = tmp_path / "model.joblib.sha256"
+    assert checksum_file.exists(), "Model checksum file was not created"
+
     expected_sha256 = hashlib.sha256((DATA_DIR / DATA_FILE).read_bytes()).hexdigest()
 
     metadata = json.loads(metrics_file.read_text())
