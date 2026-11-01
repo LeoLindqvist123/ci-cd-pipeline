@@ -259,8 +259,7 @@ jobs:
           START_TIME=$(date +%s)
           docker buildx build \
             --load \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
+            --no-cache \
             -t "$IMAGE_NAME:${{ github.sha }}" \
             -t "$IMAGE_NAME:latest" \
             .
