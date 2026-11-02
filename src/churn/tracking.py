@@ -6,8 +6,8 @@ Without it, training works exactly as before.
 """
 
 import os
+from importlib.metadata import version
 
-from importlib_metadata import version
 from sklearn.pipeline import Pipeline
 
 # Packages needed to load the model and make predictions.
