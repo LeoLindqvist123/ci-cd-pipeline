@@ -315,7 +315,7 @@ The tests that use MLflow run against a temporary SQLite database, so they never
 
 | | Before | After | Change |
 |---|---|---|---|
-| Test suite, local (Windows, median of 3 runs) | 38.8 s | 24.5 s | −35 % |
+| Test suite, local (Windows, median of 3 runs) | 41.7 s | 26.9 s | −35 % |
 | `Run tests with Pytest`, CI (Linux, median) | 18.5 s | 14 s | −24 % |
 | `Train churn model`, CI | 9–10 s | 7–11 s | no clear change |
 
