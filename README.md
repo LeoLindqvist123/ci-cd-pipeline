@@ -302,13 +302,9 @@ uv run pytest tests/test_tracking.py tests/test_register.py
 ```
 - `test_tracking.py`: no logging when tracking is disabled; a logged run has the expected tags, params and metrics.
 - `test_register.py`: no registration when tracking is disabled; a registered model gets version 1 and the `champion` alias; the CLI fails without `mlflow_run_id` and when tracking is disabled.
+- `test_tracking.py`: no logging when tracking is disabled; a logged run has the expected tags, params and metrics; the model requirements are pinned to the installed versions, always include `scikit-learn` and `skops`, and are saved with the logged model.
 
 The tests that use MLflow run against a temporary SQLite database, so they never touch your local `mlflow.db`, and they are skipped if MLflow is not installed.
-
-### Limitations and next steps
-- **No shared history between CI runs.** Each pipeline run starts with a new SQLite database, so CI always registers version 1. A central MLflow tracking server (set via `MLFLOW_TRACKING_URI` and a GitHub secret) would keep the history. The code does not need to change for that.
-- **Every approved model becomes `champion`.** A natural next step is champion/challenger: a new model only replaces the champion if it is not worse, otherwise it gets the alias `challenger`.
-- Each MLflow test still creates a new SQLite database. Sharing one database could save more time, but the tests would then share state. This should be measured first.
 
 ### Faster MLflow logging (VG)
 
@@ -333,6 +329,11 @@ uv run python analysis/pytest_timing.py 3 5   # 3 runs, show the 5 slowest tests
 ```
 
 **Trade-off:** If the model starts using a new library, it must be added to `MODEL_PACKAGES`. Otherwise the registered model can't be loaded in a new environment. The tests check that the logged model uses our list and that `scikit-learn` and `skops` are always included.
+
+### Limitations and next steps
+- **No shared history between CI runs.** Each pipeline run starts with a new SQLite database, so CI always registers version 1. A central MLflow tracking server (set via `MLFLOW_TRACKING_URI` and a GitHub secret) would keep the history. The code does not need to change for that.
+- **Every approved model becomes `champion`.** A natural next step is champion/challenger: a new model only replaces the champion if it is not worse, otherwise it gets the alias `challenger`.
+- **Each MLflow test creates its own database.** Sharing one database could make the tests faster, but they would then share state. This should be measured first.
 
 ## 🐳 Docker Packaging, Smoke Test & GHCR
 
@@ -393,6 +394,7 @@ ci-cd-pipeline/
 │   └── workflows/
 │       └── ci.yml
 ├── analysis/
+│   └── pytest_timing.py
 │   └── seed_variance.py
 ├── config/
 │   └── model_baseline.json
