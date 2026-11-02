@@ -7,10 +7,21 @@ Without it, training works exactly as before.
 
 import os
 
+from importlib_metadata import version
 from sklearn.pipeline import Pipeline
+
+# Packages needed to load the model and make predictions.
+# Listing them explicitly avoids MLflow's requirement inference,
+# which starts a separate Python process and is slow.
+MODEL_PACKAGES = ["scikit-learn", "pandas", "numpy", "scipy", "skops"]
 
 EXPERIMENT_NAME = "churn"
 REGISTERED_MODEL_NAME = "churn-model"
+
+
+def model_requirements() -> list[str]:
+    """Pin each model package to the version installed right now."""
+    return [f"{name}=={version(name)}" for name in MODEL_PACKAGES]
 
 
 def tracking_enabled() -> bool:
@@ -62,6 +73,7 @@ def log_training_run(
         mlflow.sklearn.log_model(
             model,
             name="model",
+            pip_requirements=model_requirements(),
             skops_trusted_types=["numpy.dtype"],
         )
 

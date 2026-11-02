@@ -1,9 +1,11 @@
 """Tests for the optional MLflow tracking module."""
 
+from importlib.metadata import version
+
 import pytest
 
 from churn.model import train_and_evaluate
-from churn.tracking import log_training_run
+from churn.tracking import MODEL_PACKAGES, log_training_run, model_requirements
 
 
 @pytest.fixture(scope="module")
@@ -42,3 +44,23 @@ def test_tracking_enabled_logs_run(results, tmp_path, monkeypatch):
     assert run.data.tags["commit"] == "abc1234567"
     assert run.data.params["seed"] == "42"
     assert run.data.metrics["roc_auc"] == pytest.approx(metrics["roc_auc"])
+
+    # The logged model uses our explicit requirements instead of inferred ones.
+    requirements_file = mlflow.pyfunc.get_model_dependencies(f"runs:/{run_id}/model")
+    with open(requirements_file, encoding="utf-8") as file:
+        logged = {line.strip() for line in file if line.strip()}
+
+    assert set(model_requirements()) <= logged
+
+def test_model_requirements_pin_installed_versions():
+    """Each model package is pinned to the version installed in this environment."""
+    expected = [f"{name}=={version(name)}" for name in MODEL_PACKAGES]
+
+    assert model_requirements() == expected
+
+
+def test_model_requirements_include_packages_needed_to_load_model():
+    """The model cannot be loaded without these packages."""
+    names = {requirement.split("==")[0] for requirement in model_requirements()}
+
+    assert {"scikit-learn", "skops"} <= names
