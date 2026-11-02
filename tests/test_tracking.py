@@ -52,6 +52,7 @@ def test_tracking_enabled_logs_run(results, tmp_path, monkeypatch):
 
     assert set(model_requirements()) <= logged
 
+
 def test_model_requirements_pin_installed_versions():
     """Each model package is pinned to the version installed in this environment."""
     expected = [f"{name}=={version(name)}" for name in MODEL_PACKAGES]
