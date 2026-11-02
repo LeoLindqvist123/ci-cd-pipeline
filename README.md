@@ -300,7 +300,6 @@ The CI run is named `train-<short-sha>` and is linked to the exact commit and da
 ```bash
 uv run pytest tests/test_tracking.py tests/test_register.py
 ```
-- `test_tracking.py`: no logging when tracking is disabled; a logged run has the expected tags, params and metrics.
 - `test_register.py`: no registration when tracking is disabled; a registered model gets version 1 and the `champion` alias; the CLI fails without `mlflow_run_id` and when tracking is disabled.
 - `test_tracking.py`: no logging when tracking is disabled; a logged run has the expected tags, params and metrics; the model requirements are pinned to the installed versions, always include `scikit-learn` and `skops`, and are saved with the logged model.
 
@@ -394,7 +393,7 @@ ci-cd-pipeline/
 │   └── workflows/
 │       └── ci.yml
 ├── analysis/
-│   └── pytest_timing.py
+│   ├── pytest_timing.py
 │   └── seed_variance.py
 ├── config/
 │   └── model_baseline.json
