@@ -308,6 +308,31 @@ The tests that use MLflow run against a temporary SQLite database, so they never
 ### Limitations and next steps
 - **No shared history between CI runs.** Each pipeline run starts with a new SQLite database, so CI always registers version 1. A central MLflow tracking server (set via `MLFLOW_TRACKING_URI` and a GitHub secret) would keep the history. The code does not need to change for that.
 - **Every approved model becomes `champion`.** A natural next step is champion/challenger: a new model only replaces the champion if it is not worse, otherwise it gets the alias `challenger`.
+- Each MLflow test still creates a new SQLite database. Sharing one database could save more time, but the tests would then share state. This should be measured first.
+
+### Faster MLflow logging (VG)
+
+**Problem:** Two MLflow tests took ~87 % of the test time. Measuring each function with `cProfile` showed that most of it was spent in `infer_pip_requirements`. MLflow uses it to find out which packages the model needs, by starting a separate Python process and loading the model. The result also included ~35 packages, such as `fastapi` and `uvicorn`, that the model doesn't need.
+
+**Change:** To make logging faster, we pass `pip_requirements` to `log_model` instead of letting MLflow guess which packages are needed. The package names are listed in `MODEL_PACKAGES` in `src/churn/tracking.py`, and the versions are read from the installed environment, so they always match `uv.lock`. This also keeps the saved list to the packages the model actually uses.
+
+**Results:**
+
+| | Before | After | Change |
+|---|---|---|---|
+| Test suite, local (Windows, median of 3 runs) | 38.8 s | 24.5 s | −35 % |
+| `Run tests with Pytest`, CI (Linux, median) | 18.5 s | 14 s | −24 % |
+| `Train churn model`, CI | 9–10 s | 7–11 s | no clear change |
+
+The gain is smaller in CI, because starting a new Python process is much faster on Linux than on Windows. The tests run on three Python versions, so the time is saved three times per PR. The saving grows if the project gets heavier libraries (e.g. PyTorch) or logs more models (e.g. in a hyperparameter search), since MLflow starts one extra process per logged model.
+
+To measure locally:
+
+```bash
+uv run python analysis/pytest_timing.py 3 5   # 3 runs, show the 5 slowest tests
+```
+
+**Trade-off:** If the model starts using a new library, it must be added to `MODEL_PACKAGES`. Otherwise the registered model can't be loaded in a new environment. The tests check that the logged model uses our list and that `scikit-learn` and `skops` are always included.
 
 ## 🐳 Docker Packaging, Smoke Test & GHCR
 
