@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: churn-api
+  labels:
+    app: churn-api
+spec:
+  type: ClusterIP
+  selector:
+    app: churn-api
+  ports:
+    - port: 80
+      targetPort: 8000

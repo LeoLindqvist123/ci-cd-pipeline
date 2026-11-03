@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: churn-api
+  labels:
+    app: churn-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: churn-api
+  template:
+    metadata:
+      labels:
+        app: churn-api
+    spec:
+      containers:
+        - name: churn-api
+          # The SHA tag points to exactly one built version, never "latest"
+          image: ghcr.io/josefin3647/mini-project-ci-cd/churn-api:<DIN-SHA>
+          ports:
+            - containerPort: 8000
+
+          resources:
+            requests:            # what the scheduler reserves for the pod
+              cpu: 100m
+              memory: 256Mi
+            limits:              # the ceiling the pod may never exceed
+              cpu: 500m
+              memory: 512Mi
+
+          readinessProbe:        # should the pod receive traffic?
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3    # same as HEALTHCHECK in Dockerfile
+            failureThreshold: 3
+
+          livenessProbe:         # should the pod be restarted?
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3    # same as HEALTHCHECK in Dockerfile
+            failureThreshold: 3
