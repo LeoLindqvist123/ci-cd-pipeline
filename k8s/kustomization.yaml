@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+
+images:
+  - name: ghcr.io/josefin3647/mini-project-ci-cd/churn-api
+    newTag: 7d75a18fe3ec563b8d6a4437f14a5e34a9f97ad5
