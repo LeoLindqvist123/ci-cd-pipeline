@@ -1,5 +1,5 @@
 kund_id,alder,region,abonnemang,manader_som_kund,manadskostnad,data_gb_per_manad,supportarenden_12m,avslutat
-100001,75,Väst,Bas,103,123.77,8.1,2,0
+100001,-10,Väst,Bas,103,123.77,8.1,2,0
 100002,30,Norr,Standard,85,303.7,4.4,0,0
 100003,19,Väst,Bas,1,146.97,10.1,2,1
 100004,61,Stockholm,Bas,89,145.42,10.0,0,0
