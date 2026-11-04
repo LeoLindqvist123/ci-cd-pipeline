@@ -19,9 +19,18 @@ spec:
       labels:
         app: churn-api
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: churn-api
           image: ghcr.io/josefin3647/mini-project-ci-cd/churn-api:set-by-kustomize
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 8000
 
